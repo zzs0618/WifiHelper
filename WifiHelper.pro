@@ -9,7 +9,7 @@ CONFIG -= app_bundle
 
 TEMPLATE = app
 
-INCLUDEPATH += 3rdparty/wpa_supplicant/src 3rdparty/wpa_supplicant/src/utils
+DEFINES += CONFIG_CTRL_IFACE
 
 win32 {
   LIBS += -lws2_32 -static
@@ -31,10 +31,14 @@ win32 {
   SOURCES += 3rdparty/wpa_supplicant/src/utils/os_unix.c
 }
 
+INCLUDEPATH += 3rdparty/wpa_supplicant/src 3rdparty/wpa_supplicant/src/utils
+
 HEADERS += \
+    wifiwpaadapter.h
 
 SOURCES += main.cpp \
-    3rdparty/wpa_supplicant/src/common/wpa_ctrl.c
+    3rdparty/wpa_supplicant/src/common/wpa_ctrl.c \
+    wifiwpaadapter.cpp
 
 # The following define makes your compiler emit warnings if you use
 # any feature of Qt which as been marked deprecated (the exact warnings
