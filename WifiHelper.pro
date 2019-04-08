@@ -1,6 +1,8 @@
 QT += core dbus
 QT -= gui
 
+QT_PRIVATE += core-private
+
 CONFIG += c++11
 
 TARGET = WifiHelper

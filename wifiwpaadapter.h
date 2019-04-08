@@ -34,6 +34,7 @@ public:
     ~WifiWPAAdapter();
 
 signals:
+    void statusChanged();
 
 public slots:
     bool select(const QString &iface);
@@ -45,8 +46,6 @@ public slots:
 
 private:
     Q_DECLARE_PRIVATE(WifiWPAAdapter)
-    WifiWPAAdapterPrivate *d_ptr;
-
 };
 
 #endif // WIFIWPAADAPTER_H
