@@ -1,0 +1,11 @@
+[Unit]
+Description=The service of wpa_cli
+After=wpa.service
+Requires=wpa.service
+
+[Service]
+ExecStart=/usr/sbin/wpa_cli -a/sbin/wpa_action.sh -i wlan0
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

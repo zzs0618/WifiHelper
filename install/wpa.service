@@ -1,0 +1,9 @@
+[Unit]
+Description=The service of wpa_supplicant
+
+[Service]
+ExecStart=/usr/sbin/wpa_supplicant -iwlan0 -c/etc/wpa_supplicant.conf
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
