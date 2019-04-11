@@ -23,7 +23,7 @@ int main(int argc, char *argv[])
     QCoreApplication a(argc, argv);
 
     WifiWPAAdapter *wpa = new WifiWPAAdapter;
-    wpa->select("wlan0");
+    wpa->selectInterface("wlan0");
     wpa->scan();
 
     return a.exec();

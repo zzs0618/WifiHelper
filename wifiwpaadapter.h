@@ -37,11 +37,10 @@ signals:
     void statusChanged();
 
 public slots:
-    bool select(const QString &iface);
+    void selectInterface(const QString &iface);
     bool connect();
     bool disconnect();
     void saveConfig();
-    void ping();
     void scan();
 
 private:

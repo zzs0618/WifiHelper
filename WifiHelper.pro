@@ -44,13 +44,21 @@ win32 {
         conf.files = $$PWD/install/wifihelper.conf
         INSTALLS += conf
 
+        dnsmasq.path = /etc
+        dnsmasq.files = $$PWD/install/dnsmasq.conf
+        INSTALLS += dnsmasq
+
         udhcpc.path = /etc/udhcpc.d
         udhcpc.files = $$PWD/install/50default
         INSTALLS += udhcpc
 
-        dhcp_action.path = /sbin
-        dhcp_action.files = $$PWD/install/dhcp_action.sh
-        INSTALLS += dhcp_action
+        dhcpc_action.path = /sbin
+        dhcpc_action.files = $$PWD/install/dhcpc_action.sh
+        INSTALLS += dhcpc_action
+
+        dhcpd_action.path = /sbin
+        dhcpd_action.files = $$PWD/install/dhcpd_action.sh
+        INSTALLS += dhcpd_action
 
         wpa_cli.path = /lib/systemd/system
         wpa_cli.files = $$PWD/install/wpa_cli.service
