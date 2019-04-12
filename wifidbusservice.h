@@ -1,4 +1,5 @@
 /**
+ ** This file is part of the WifiHelper project.
  ** Copyright 2019 张作深 <zhangzuoshen@hangsheng.com.cn>.
  **
  ** This program is free software: you can redistribute it and/or modify
@@ -15,15 +16,19 @@
  ** along with this program.  If not, see <http://www.gnu.org/licenses/>.
  **/
 
-#include <QCoreApplication>
-#include "wifidbusservice.h"
+#ifndef WIFIDBUSSERVICE_H
+#define WIFIDBUSSERVICE_H
 
-int main(int argc, char *argv[])
+#include <QThread>
+
+class WifiDbusService : public QThread
 {
-    QCoreApplication a(argc, argv);
+    Q_OBJECT
+public:
+    explicit WifiDbusService(QObject *parent = nullptr);
 
-    WifiDbusService *dbusService = new WifiDbusService;
-    dbusService->start();
+public slots:
+    virtual void run() Q_DECL_OVERRIDE;
+};
 
-    return a.exec();
-}
+#endif // WIFIDBUSSERVICE_H

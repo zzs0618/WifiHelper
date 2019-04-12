@@ -11,6 +11,8 @@ CONFIG -= app_bundle
 
 TEMPLATE = app
 
+DBUS_ADAPTORS += wifi.helper.station.xml
+
 DEFINES += CONFIG_CTRL_IFACE
 
 win32 {
@@ -72,6 +74,10 @@ win32 {
         service.files = $$PWD/install/wifihelper.service
         INSTALLS += service
 
+        dbus_conf.path = /etc/dbus-1/system.d/
+        dbus_conf.files = $$PWD/install/wifi.helper.service.conf
+        INSTALLS += dbus_conf
+
 #        wants.path  = /lib/systemd/system/basic.target.wants
 #        wants.files = $$PWD/install/basic.target.wants/wifihelper.service
 #        INSTALLS += wants
@@ -84,14 +90,18 @@ HEADERS += \
     wifiwpaadapter.h \
     wifiaccesspoint.h \
     wifi.h \
-    wifinetwork.h
+    wifinetwork.h \
+    wifidbusservice.h \
+    wifidbusstationstub.h
 
 SOURCES += main.cpp \
     3rdparty/wpa_supplicant/src/common/wpa_ctrl.c \
     wifiwpaadapter.cpp \
     wifiaccesspoint.cpp \
     wifi.cpp \
-    wifinetwork.cpp
+    wifinetwork.cpp \
+    wifidbusservice.cpp \
+    wifidbusstationstub.cpp
 
 # The following define makes your compiler emit warnings if you use
 # any feature of Qt which as been marked deprecated (the exact warnings

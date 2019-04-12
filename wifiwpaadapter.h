@@ -19,7 +19,8 @@
 #ifndef WIFIWPAADAPTER_H
 #define WIFIWPAADAPTER_H
 
-#include <QObject>
+#include "wifi.h"
+#include "wifiaccesspoint.h"
 #include <QLoggingCategory>
 
 // in a header
@@ -33,8 +34,24 @@ public:
     explicit WifiWPAAdapter(QObject *parent = nullptr);
     ~WifiWPAAdapter();
 
+    // 已连接WIFI的SSID
+    QString ssid() const;
+    // 已连接WIFI的SSID
+    QString bssid() const;
+    // 已连接WIFI的SSID
+    QString ipAddress() const;
+    // 已连接WIFI的状态
+    QString state();
+    // 已连接WIFI的安全认证
+    QString security();
+    // 已连接WIFI的信号强度
+    int rssiValue();
+    // 获取当前WiFi接入点
+    QList<WifiAccessPoint *> accessPoints();
+
 signals:
     void statusChanged();
+    void accessPointsChanged();
 
 public slots:
     void selectInterface(const QString &iface);

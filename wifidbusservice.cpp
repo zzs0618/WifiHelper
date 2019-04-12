@@ -1,4 +1,5 @@
 /**
+ ** This file is part of the WifiHelper project.
  ** Copyright 2019 张作深 <zhangzuoshen@hangsheng.com.cn>.
  **
  ** This program is free software: you can redistribute it and/or modify
@@ -15,15 +16,26 @@
  ** along with this program.  If not, see <http://www.gnu.org/licenses/>.
  **/
 
-#include <QCoreApplication>
 #include "wifidbusservice.h"
+#include "wifidbusstationstub.h"
+#include "wifiwpaadapter.h"
 
-int main(int argc, char *argv[])
+#include "station_adaptor.h"
+
+
+WifiDbusService::WifiDbusService(QObject *parent) : QThread(parent)
 {
-    QCoreApplication a(argc, argv);
+}
 
-    WifiDbusService *dbusService = new WifiDbusService;
-    dbusService->start();
+void WifiDbusService::run()
+{
+    WifiWPAAdapter *wpa = new WifiWPAAdapter;
+    WifiDbusStationStub *station = new WifiDbusStationStub(wpa);
 
-    return a.exec();
+    QDBusConnection connection = QDBusConnection::systemBus();
+    new StationAdaptor(station);
+    connection.registerObject("/Station", station);
+    connection.registerService("wifi.helper.service");
+
+    QThread::exec();
 }

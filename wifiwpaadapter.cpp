@@ -17,7 +17,6 @@
  **/
 
 #include "wifiwpaadapter.h"
-#include "wifiaccesspoint.h"
 
 #include <private/qobject_p.h>
 #include <QSocketNotifier>
@@ -161,6 +160,9 @@ WifiWPAAdapterPrivate::~WifiWPAAdapterPrivate()
         wpa_ctrl_close(ctrl_conn);
         ctrl_conn = NULL;
     }
+
+    qDeleteAll(m_accessPoints);
+    m_accessPoints.clear();
 }
 
 QString WifiWPAAdapterPrivate::wpaStateTranslate(char *state)
@@ -229,6 +231,7 @@ void WifiWPAAdapterPrivate::updateStatus()
         qCDebug(wifiWPAAdapter, "Could not get status from wpa_supplicant.");
 
         signalMeterTimer->stop();
+        m_rssiValue = -100;
         return;
     }
 
@@ -358,6 +361,7 @@ void WifiWPAAdapterPrivate::updateStatus()
             }
         } else {
             signalMeterTimer->stop();
+            m_rssiValue = -100;
         }
     }
 }
@@ -905,6 +909,7 @@ void WifiWPAAdapterPrivate::updateScanResults()
     QString printable;
     QTextStream text(&printable);
 
+    qDeleteAll(m_accessPoints);
     m_accessPoints.clear();
 
     index = 0;
@@ -994,7 +999,7 @@ void WifiWPAAdapterPrivate::updateScanResults()
         }
 
 
-        WifiAccessPoint *point = new WifiAccessPoint(bssid, q_func());
+        WifiAccessPoint *point = new WifiAccessPoint(bssid);
         point->setSsid(ssid);
         point->setFrequency(freq.toInt());
         point->setStrength(signal.toInt());
@@ -1010,6 +1015,8 @@ void WifiWPAAdapterPrivate::updateScanResults()
              << qSetFieldWidth(20) << left << ssid
              << qSetFieldWidth(1) << endl;
     }
+
+    Q_EMIT q_func()->accessPointsChanged();
 }
 
 WifiWPAAdapter::WifiWPAAdapter(QObject *parent)
@@ -1071,4 +1078,48 @@ void WifiWPAAdapter::scan()
 {
     Q_D(WifiWPAAdapter);
     d->scanRequest();
+}
+
+// 已连接WIFI的SSID
+QString WifiWPAAdapter::ssid() const
+{
+    Q_D(const WifiWPAAdapter);
+    return d->m_ssid;
+}
+// 已连接WIFI的SSID
+QString WifiWPAAdapter::bssid() const
+{
+    Q_D(const WifiWPAAdapter);
+    return d->m_bssid;
+}
+// 已连接WIFI的SSID
+QString WifiWPAAdapter::ipAddress() const
+{
+    Q_D(const WifiWPAAdapter);
+    return d->m_ipAddress;
+}
+// 已连接WIFI的状态
+QString WifiWPAAdapter::state()
+{
+    Q_D(const WifiWPAAdapter);
+    return d->m_state;
+}
+// 已连接WIFI的安全认证
+QString WifiWPAAdapter::security()
+{
+    Q_D(const WifiWPAAdapter);
+    return d->m_security;
+}
+// 已连接WIFI的信号强度
+int WifiWPAAdapter::rssiValue()
+{
+    Q_D(WifiWPAAdapter);
+    return d->m_rssiValue;
+}
+
+// 获取当前WiFi接入点
+QList<WifiAccessPoint *> WifiWPAAdapter::accessPoints()
+{
+    Q_D(WifiWPAAdapter);
+    return d->m_accessPoints;
 }
