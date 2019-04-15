@@ -37,5 +37,8 @@ void WifiDbusService::run()
     connection.registerObject("/Station", station);
     connection.registerService("wifi.helper.service");
 
+    wpa->selectInterface("wlan0");
+    wpa->scan();
+
     QThread::exec();
 }

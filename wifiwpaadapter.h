@@ -21,6 +21,7 @@
 
 #include "wifi.h"
 #include "wifiaccesspoint.h"
+#include "wifinetwork.h"
 #include <QLoggingCategory>
 
 // in a header
@@ -46,12 +47,15 @@ public:
     QString security();
     // 已连接WIFI的信号强度
     int rssiValue();
-    // 获取当前WiFi接入点
+    // 获取当前WiFi接入点列表
     QList<WifiAccessPoint *> accessPoints();
+    // 获取当前WiFi网络列表
+    QList<WifiNetwork *> networks();
 
 signals:
     void statusChanged();
     void accessPointsChanged();
+    void networksChanged();
 
 public slots:
     void selectInterface(const QString &iface);
@@ -59,6 +63,8 @@ public slots:
     bool disconnect();
     void saveConfig();
     void scan();
+
+    void addNetwork(const QString &bssid, const QString &password);
 
 private:
     Q_DECLARE_PRIVATE(WifiWPAAdapter)

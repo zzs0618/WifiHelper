@@ -18,15 +18,27 @@
 
 #include "wifinetwork.h"
 
-WifiNetwork::WifiNetwork(const QString &bid, QObject *parent) : QObject(parent)
-    , m_bssid(bid)
+WifiNetwork::WifiNetwork(int id, QObject *parent) : QObject(parent)
+    , m_id(id)
 {
 
+}
+
+int WifiNetwork::id()
+{
+    return m_id;
 }
 
 QString WifiNetwork::bssid() const
 {
     return m_bssid;
+}
+void WifiNetwork::setBssid(const QString &id)
+{
+    if(id != m_bssid) {
+        m_bssid = id;
+        emit bssidChanged();
+    }
 }
 
 QString WifiNetwork::ssid() const

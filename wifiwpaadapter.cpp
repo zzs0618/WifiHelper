@@ -83,6 +83,7 @@ public:
     void updateNetworks();
     void receiveMsgs();
     void processMsg(char *msg);
+    WifiAccessPoint *getAccessPoint(const QString &bssid);
 
     bool openWPAConnection(const QString &iface);
     bool connect();
@@ -91,6 +92,9 @@ public:
     void ping();
     void scanRequest();
     void updateScanResults();
+    void triggerUpdate();
+
+    void addNetwork(const QString &bssid, const QString &password);
 
     int pingsToStatusUpdate = NUMBER_PING_UPDATE_STATUS;
     QSocketNotifier *msgNotifier = NULL;
@@ -116,11 +120,13 @@ public:
     QString m_groupCipher;
     int m_rssiValue = -100;
     QList<WifiAccessPoint *> m_accessPoints;
+    QList<WifiNetwork *> m_networks;
     QStringList m_allInterfaceFiles;
     QString m_interface;
 
 protected:
     int ctrlRequest(const char *cmd, char *buf, size_t *buflen);
+    int setNetworkParam(int id, const char *field, const char *value, bool quote);
 };
 
 WifiWPAAdapterPrivate::WifiWPAAdapterPrivate()
@@ -370,9 +376,8 @@ void WifiWPAAdapterPrivate::updateNetworks()
 {
     char buf[4096], *start, *end, *id, *_ssid, *_bssid, *flags;
     size_t len;
-    //    int first_active = -1;
+    int first_active = -1;
     //    int was_selected = -1;
-    //    bool current = false;
 
     if (!networkMayHaveChanged) {
         return;
@@ -401,7 +406,19 @@ void WifiWPAAdapterPrivate::updateNetworks()
     }
     start++;
 
+    qDeleteAll(m_networks);
+    m_networks.clear();
+
+    QString printable;
+    QTextStream text(&printable);
+    qCDebug(wifiWPAAdapter, "LIST_NETWORKS [ Start ].");
+    text << qSetFieldWidth(5) << left << QStringLiteral("ID")
+         << qSetFieldWidth(20) << left << QStringLiteral("BSSID")
+         << qSetFieldWidth(20) << left << QStringLiteral("SSID")
+         << qSetFieldWidth(1) << endl;
+
     while (*start) {
+        bool current = false;
         bool last = false;
         end = strchr(start, '\n');
         if (end == NULL) {
@@ -437,46 +454,54 @@ void WifiWPAAdapterPrivate::updateNetworks()
             start = end + 1;
             continue;
         }
-        /*
-                QString network(id);
-                network.append(": ");
-                network.append(_ssid);
-                networkSelect->addItem(network);
-                networkList->addItem(network);
 
-                if (strstr(flags, "[CURRENT]")) {
-                    networkSelect->setCurrentIndex(networkSelect->count() - 1);
-                    current = true;
-                } else if (first_active < 0 &&
-                           strstr(flags, "[DISABLED]") == NULL) {
-                    first_active = networkSelect->count() - 1;
-                }
-        */
+        if (strstr(flags, "[CURRENT]")) {
+            //            networkSelect->setCurrentIndex(networkSelect->count() - 1);
+            current = true;
+        } else if (first_active < 0 &&
+                   strstr(flags, "[DISABLED]") == NULL) {
+            //            first_active = networkSelect->count() - 1;
+        }
+
+        WifiNetwork *network = new WifiNetwork(QString(id).toInt());
+        network->setBssid(_bssid);
+        network->setSsid(_ssid);
+        m_networks.append(network);
+
+        text << qSetFieldWidth(1) << (current ? "@" : "")
+             << qSetFieldWidth(4) << left << id
+             << qSetFieldWidth(20) << left << _bssid
+             << qSetFieldWidth(20) << left << _ssid
+             << qSetFieldWidth(1) << endl;
+
         if (last) {
             break;
         }
         start = end + 1;
     }
-    /*
-        if (networkSelect->count() > 1) {
-            networkSelect->addItem(tr("Select any network"));
-        }
+    //    if (networkSelect->count() > 1) {
+    //        networkSelect->addItem(tr("Select any network"));
+    //    }
 
-        if (!current && first_active >= 0) {
-            networkSelect->setCurrentIndex(first_active);
-        }
+    //    if (!current && first_active >= 0) {
+    //        networkSelect->setCurrentIndex(first_active);
+    //    }
 
-        if (was_selected >= 0 && networkList->count() > 0) {
-            if (was_selected < networkList->count()) {
-                networkList->setCurrentRow(was_selected);
-            } else {
-                networkList->setCurrentRow(networkList->count() - 1);
-            }
-        } else {
-            networkList->setCurrentRow(networkSelect->currentIndex());
-        }
-    */
+    //    if (was_selected >= 0 && networkList->count() > 0) {
+    //        if (was_selected < networkList->count()) {
+    //            networkList->setCurrentRow(was_selected);
+    //        } else {
+    //            networkList->setCurrentRow(networkList->count() - 1);
+    //        }
+    //    } else {
+    //        networkList->setCurrentRow(networkSelect->currentIndex());
+    //    }
     networkMayHaveChanged = false;
+
+    qCDebug(wifiWPAAdapter, "LIST_NETWORKS [ Debug ].\n%s",
+            qUtf8Printable(printable));
+    qCDebug(wifiWPAAdapter, "LIST_NETWORKS [ End ].");
+    Q_EMIT q_func()->networksChanged();
 }
 
 void WifiWPAAdapterPrivate::receiveMsgs()
@@ -722,6 +747,16 @@ void WifiWPAAdapterPrivate::processMsg(char *msg)
     }
 }
 
+WifiAccessPoint *WifiWPAAdapterPrivate::getAccessPoint(const QString &bssid)
+{
+    for(WifiAccessPoint *ap : this->m_accessPoints) {
+        if(ap->bssid() == bssid) {
+            return ap;
+        }
+    }
+    return NULL;
+}
+
 int WifiWPAAdapterPrivate::ctrlRequest(const char *cmd, char *buf,
                                        size_t *buflen)
 {
@@ -736,6 +771,18 @@ int WifiWPAAdapterPrivate::ctrlRequest(const char *cmd, char *buf,
         qCDebug(wifiWPAAdapter, "'%s' command failed.", cmd);
     }
     return ret;
+}
+
+int WifiWPAAdapterPrivate::setNetworkParam(int id, const char *field,
+        const char *value, bool quote)
+{
+    char reply[10], cmd[256];
+    size_t reply_len;
+    snprintf(cmd, sizeof(cmd), "SET_NETWORK %d %s %s%s%s",
+             id, field, quote ? "\"" : "", value, quote ? "\"" : "");
+    reply_len = sizeof(reply);
+    ctrlRequest(cmd, reply, &reply_len);
+    return strncmp(reply, "OK", 2) == 0 ? 0 : -1;
 }
 
 bool WifiWPAAdapterPrivate::openWPAConnection(const QString &iface)
@@ -906,14 +953,14 @@ void WifiWPAAdapterPrivate::updateScanResults()
     size_t reply_len;
     int index;
     char cmd[20];
-    QString printable;
-    QTextStream text(&printable);
 
     qDeleteAll(m_accessPoints);
     m_accessPoints.clear();
 
     index = 0;
 
+    QString printable;
+    QTextStream text(&printable);
     qCDebug(wifiWPAAdapter, "GET_SCAN_RESULTS [ Start ].");
     text << qSetFieldWidth(20) << left << QStringLiteral("BSSID")
          << qSetFieldWidth(8) << left << QStringLiteral("Freq")
@@ -1019,6 +1066,135 @@ void WifiWPAAdapterPrivate::updateScanResults()
     Q_EMIT q_func()->accessPointsChanged();
 }
 
+void WifiWPAAdapterPrivate::triggerUpdate()
+{
+    updateStatus();
+    networkMayHaveChanged = true;
+    updateNetworks();
+}
+
+void WifiWPAAdapterPrivate::addNetwork(const QString &bssid,
+                                       const QString &password)
+{
+    char reply[10], cmd[256];
+    size_t reply_len;
+    int id, edit_network_id = 0;
+    bool new_network = true;
+
+    WifiAccessPoint *ap = getAccessPoint(bssid);
+
+
+    memset(reply, 0, sizeof(reply));
+    reply_len = sizeof(reply) - 1;
+
+    if (new_network) {
+        ctrlRequest("ADD_NETWORK", reply, &reply_len);
+        if (reply[0] == 'F') {
+            qCCritical(wifiWPAAdapter,
+                       "Failed to add network to wpa_supplicant configuration.\n%s",
+                       reply);
+            return;
+        }
+        id = QString(reply).toInt();
+    } else {
+        id = edit_network_id;
+    }
+
+    setNetworkParam(id, "ssid", qUtf8Printable(ap->ssid()), true);
+
+    Wifi::Securitys auth = ap->securitys();
+    if(auth.testFlag(Wifi::NoneWEPShared)) {
+        setNetworkParam(id, "auth_alg", "SHARED", false);
+    } else {
+        setNetworkParam(id, "auth_alg", "OPEN", false);
+    }
+
+    const char *key_mgmt = NULL, *proto = NULL, *pairwise = NULL;
+    if(auth.testFlag(Wifi::NoneOpen) || auth.testFlag(Wifi::NoneWEP) ||
+       auth.testFlag(Wifi::NoneWEPShared)) {
+        key_mgmt = "NONE";
+    }
+    if(auth.testFlag(Wifi::IEEE8021X)) {
+        key_mgmt = "IEEE8021X";
+    }
+    if(auth.testFlag(Wifi::WPA_PSK)) {
+        key_mgmt = "WPA-PSK";
+        proto = "WPA";
+    }
+    if(auth.testFlag(Wifi::WPA_EAP)) {
+        key_mgmt = "WPA-EAP";
+        proto = "WPA";
+    }
+    if(auth.testFlag(Wifi::WPA2_PSK)) {
+        key_mgmt = "WPA-PSK";
+        proto = "WPA2";
+    }
+    if(auth.testFlag(Wifi::WPA2_EAP)) {
+        key_mgmt = "WPA-EAP";
+        proto = "WPA2";
+    }
+
+    if (auth.testFlag(Wifi::WPA_PSK) || auth.testFlag(Wifi::WPA_EAP) ||
+        auth.testFlag(Wifi::WPA2_PSK) || auth.testFlag(Wifi::WPA2_EAP)) {
+        int encr = (auth.testFlag(Wifi::WPA_PSK) ||
+                    auth.testFlag(Wifi::WPA_EAP)) ? 0 : 1;
+        if (encr == 0) {
+            pairwise = "TKIP";
+        } else {
+            pairwise = "CCMP";
+        }
+    }
+
+    if (proto) {
+        setNetworkParam(id, "proto", proto, false);
+    }
+    if (key_mgmt) {
+        setNetworkParam(id, "key_mgmt", key_mgmt, false);
+    }
+    if (pairwise) {
+        setNetworkParam(id, "pairwise", pairwise, false);
+        setNetworkParam(id, "group", "TKIP CCMP WEP104 WEP40", false);
+    }
+
+    if(auth.testFlag(Wifi::WPA_PSK) || auth.testFlag(Wifi::WPA2_PSK)) {
+        setNetworkParam(id, "psk", qUtf8Printable(password), true);
+    } else if(auth.testFlag(Wifi::WPA_EAP) || auth.testFlag(Wifi::WPA2_EAP)) {
+        const char *eap = "MD5";
+        setNetworkParam(id, "eap", eap, false);
+        if (strcmp(eap, "SIM") == 0 || strcmp(eap, "AKA") == 0) {
+            setNetworkParam(id, "pcsc", "", true);
+        } else {
+            setNetworkParam(id, "pcsc", "NULL", false);
+        }
+
+        setNetworkParam(id, "identity", "NULL", false);
+        setNetworkParam(id, "ca_cert", "NULL", false);
+
+        if(password == "") {
+            setNetworkParam(id, "password", "NULL", false);
+        } else {
+            setNetworkParam(id, "password", qUtf8Printable(password), true);
+        }
+    }
+
+    setNetworkParam(id, "phase2", "NULL", false);
+    setNetworkParam(id, "id_str", "NULL", false);
+
+
+    snprintf(cmd, sizeof(cmd), "ENABLE_NETWORK %d", id);
+    reply_len = sizeof(reply);
+    ctrlRequest(cmd, reply, &reply_len);
+    if (strncmp(reply, "OK", 2) != 0) {
+        qCCritical(wifiWPAAdapter,
+                   "Failed to enable network in wpa_supplicant configuration.\n%s",
+                   reply);
+        /* Network was added, so continue anyway */
+    }
+
+    triggerUpdate();
+    ctrlRequest("SAVE_CONFIG", reply, &reply_len);
+}
+
 WifiWPAAdapter::WifiWPAAdapter(QObject *parent)
     : QObject(*(new WifiWPAAdapterPrivate), parent)
 {
@@ -1080,6 +1256,12 @@ void WifiWPAAdapter::scan()
     d->scanRequest();
 }
 
+void WifiWPAAdapter::addNetwork(const QString &bssid, const QString &password)
+{
+    Q_D(WifiWPAAdapter);
+    d->addNetwork(bssid, password);
+}
+
 // 已连接WIFI的SSID
 QString WifiWPAAdapter::ssid() const
 {
@@ -1122,4 +1304,11 @@ QList<WifiAccessPoint *> WifiWPAAdapter::accessPoints()
 {
     Q_D(WifiWPAAdapter);
     return d->m_accessPoints;
+}
+
+// 获取当前WiFi网络列表
+QList<WifiNetwork *> WifiWPAAdapter::networks()
+{
+    Q_D(WifiWPAAdapter);
+    return d->m_networks;
 }

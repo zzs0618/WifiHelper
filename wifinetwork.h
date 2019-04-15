@@ -24,7 +24,8 @@
 class WifiNetwork : public QObject
 {
     Q_OBJECT
-    Q_PROPERTY(QString bssid READ bssid CONSTANT)
+    Q_PROPERTY(int id READ id CONSTANT)
+    Q_PROPERTY(QString bssid READ bssid WRITE setBssid NOTIFY bssidChanged)
     Q_PROPERTY(QString ssid READ ssid WRITE setSsid NOTIFY ssidChanged)
     Q_PROPERTY(Wifi::Security security READ security WRITE setSecurity NOTIFY
                securityChanged)
@@ -44,9 +45,12 @@ class WifiNetwork : public QObject
     //    Q_PROPERTY(QString wepKey2 READ wepKey2 WRITE setWepKey2 NOTIFY wepKey2Changed)
     //    Q_PROPERTY(QStirng wepKey3 READ wepKey3 WRITE setWepKey3 NOTIFY wepKey3Changed)
 public:
-    explicit WifiNetwork(const QString &bid, QObject *parent = nullptr);
+    explicit WifiNetwork(int id, QObject *parent = nullptr);
+
+    int id();
 
     QString bssid() const;
+    void setBssid(const QString &id);
 
     QString ssid() const;
     void setSsid(const QString &id);
@@ -61,12 +65,14 @@ public:
     void setPsk(const QString &key);
 
 signals:
+    void bssidChanged();
     void ssidChanged();
     void securityChanged();
     void encrytionChanged();
     void pskChanged();
 
 private:
+    int m_id;
     QString m_bssid;
     QString m_ssid;
     Wifi::Security m_security = Wifi::NoneOpen;
