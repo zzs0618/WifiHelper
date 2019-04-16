@@ -52,6 +52,12 @@ public:
     // 获取当前WiFi网络列表
     QList<WifiNetwork *> networks();
 
+    int addNetwork(const QString &ssid, const QString &password);
+
+    void selectNetwork(const QString &ssid);
+    void selectNetwork(int id);
+    void removeNetwork(int id);
+
 signals:
     void statusChanged();
     void accessPointsChanged();
@@ -63,8 +69,6 @@ public slots:
     bool disconnect();
     void saveConfig();
     void scan();
-
-    void addNetwork(const QString &bssid, const QString &password);
 
 private:
     Q_DECLARE_PRIVATE(WifiWPAAdapter)

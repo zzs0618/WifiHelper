@@ -100,7 +100,7 @@ WifiDbusStationStub::WifiDbusStationStub(WifiWPAAdapter *wpa, QObject *parent)
                             &WifiDbusStationStubPrivate::onWPAAccessPointsChanged);
 }
 
-void WifiDbusStationStub::Connect()
+void WifiDbusStationStub::Open()
 {
     Q_D(WifiDbusStationStub);
     if(d->m_wpa) {
@@ -108,7 +108,7 @@ void WifiDbusStationStub::Connect()
     }
 }
 
-void WifiDbusStationStub::Disconnect()
+void WifiDbusStationStub::Close()
 {
     Q_D(WifiDbusStationStub);
     if(d->m_wpa) {
@@ -116,26 +116,27 @@ void WifiDbusStationStub::Disconnect()
     }
 }
 
-void WifiDbusStationStub::Save()
+void WifiDbusStationStub::AddNetwork(const QString &ssid,
+                                     const QString &password)
 {
     Q_D(WifiDbusStationStub);
     if(d->m_wpa) {
-        d->m_wpa->saveConfig();
+        d->m_wpa->addNetwork(ssid, password);
     }
 }
 
-void WifiDbusStationStub::Scan()
+void WifiDbusStationStub::RemoveNetwork(int id)
 {
     Q_D(WifiDbusStationStub);
     if(d->m_wpa) {
-        d->m_wpa->scan();
+        d->m_wpa->removeNetwork(id);
     }
 }
 
-void WifiDbusStationStub::Select(const QString &iface)
+void WifiDbusStationStub::SelectNetwork(int id)
 {
     Q_D(WifiDbusStationStub);
     if(d->m_wpa) {
-        d->m_wpa->selectInterface(iface);
+        d->m_wpa->selectNetwork(id);
     }
 }

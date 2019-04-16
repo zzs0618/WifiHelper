@@ -90,3 +90,17 @@ void WifiNetwork::setPsk(const QString &key)
     }
 }
 
+bool WifiNetwork::enabled()
+{
+    return m_enabled;
+}
+
+void WifiNetwork::setEnabled(bool enable)
+{
+    if(enable != m_enabled) {
+        m_enabled = enable;
+        emit enabledChanged();
+    }
+}
+
+

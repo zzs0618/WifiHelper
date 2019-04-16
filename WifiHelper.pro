@@ -43,42 +43,30 @@ win32 {
         INSTALLS += target
 
         conf.path = /etc
-        conf.files = $$PWD/install/wifihelper.conf
+        conf.files = $$PWD/install/wifihelper.conf \
+                     $$PWD/install/dnsmasq.conf \
+                     $$PWD/install/wpa_supplicant.conf
         INSTALLS += conf
-
-        dnsmasq.path = /etc
-        dnsmasq.files = $$PWD/install/dnsmasq.conf
-        INSTALLS += dnsmasq
 
         udhcpc.path = /etc/udhcpc.d
         udhcpc.files = $$PWD/install/50default
         INSTALLS += udhcpc
 
-        dhcpc_action.path = /sbin
-        dhcpc_action.files = $$PWD/install/dhcpc_action.sh
-        INSTALLS += dhcpc_action
+        action.path = /sbin
+        action.files = $$PWD/install/dhcpd_action.sh \
+                       $$PWD/install/dhcpc_action.sh
+        INSTALLS += action
 
-        dhcpd_action.path = /sbin
-        dhcpd_action.files = $$PWD/install/dhcpd_action.sh
-        INSTALLS += dhcpd_action
-
-        wpa_cli.path = /lib/systemd/system
-        wpa_cli.files = $$PWD/install/wpa_cli.service
-        INSTALLS += wpa_cli
-
-        wpa.path = /lib/systemd/system
-        wpa.files = $$PWD/install/wpa.service
-        INSTALLS += wpa
-
-        service.path = /lib/systemd/system
-        service.files = $$PWD/install/wifihelper.service
+        service.path = /etc/systemd/system
+        service.files = $$PWD/install/wifihelper.service \
+                        $$PWD/install/wpa.service
         INSTALLS += service
 
         dbus_conf.path = /etc/dbus-1/system.d/
         dbus_conf.files = $$PWD/install/wifi.helper.service.conf
         INSTALLS += dbus_conf
 
-#        wants.path  = /lib/systemd/system/basic.target.wants
+#        wants.path  = /etc/systemd/system/basic.target.wants
 #        wants.files = $$PWD/install/basic.target.wants/wifihelper.service
 #        INSTALLS += wants
     }

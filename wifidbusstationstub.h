@@ -35,11 +35,11 @@ public:
 
 public: // PROPERTIES
 public Q_SLOTS: // METHODS
-    void Connect();
-    void Disconnect();
-    void Save();
-    void Scan();
-    void Select(const QString &iface);
+    void Open();
+    void Close();
+    void AddNetwork(const QString &ssid, const QString &password);
+    void RemoveNetwork(int id);
+    void SelectNetwork(int id);
 
 Q_SIGNALS: // SIGNALS
     void AccessPointUpdate(const QString &point);

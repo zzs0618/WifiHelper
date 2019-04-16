@@ -32,6 +32,7 @@ class WifiNetwork : public QObject
     Q_PROPERTY(Wifi::Encrytion encrytion READ encrytion WRITE setEncrytion NOTIFY
                encrytionChanged)
     Q_PROPERTY(QString psk READ psk WRITE setPsk NOTIFY pskChanged)
+    Q_PROPERTY(bool enabled READ enabled WRITE setEnabled NOTIFY enabledChanged)
     //    Q_PROPERTY(QString eapMethod READ eapMethod WRITE setEapMethod NOTIFY
     //               eapMethodChanged)
     //    Q_PROPERTY(QString identity READ identity WRITE setIdentity NOTIFY
@@ -64,12 +65,16 @@ public:
     QString psk() const;
     void setPsk(const QString &key);
 
+    bool enabled();
+    void setEnabled(bool enable);
+
 signals:
     void bssidChanged();
     void ssidChanged();
     void securityChanged();
     void encrytionChanged();
     void pskChanged();
+    void enabledChanged();
 
 private:
     int m_id;
@@ -78,6 +83,7 @@ private:
     Wifi::Security m_security = Wifi::NoneOpen;
     Wifi::Encrytion m_encrytion = Wifi::None;
     QString m_psk;
+    bool m_enabled = true;
 };
 
 #endif // WIFINETWORK_H
