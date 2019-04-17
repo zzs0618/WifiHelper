@@ -171,7 +171,6 @@ void WifiDbusStationStubPrivate::onWPANetworksChanged()
             point.insert(QLatin1String("type"), type);
 
             QStringList diffs = compareAccessPoint(m_WifiPoints[key], point);
-            qCDebug(wifiDbus) << Q_FUNC_INFO << diffs;
             if(!diffs.isEmpty()) {
                 for(const QString &col : diffs) {
                     m_WifiPoints[key][col] = point[col];
@@ -232,41 +231,53 @@ QString WifiDbusStationStub::status() const
 void WifiDbusStationStub::Open()
 {
     Q_D(WifiDbusStationStub);
+    qCDebug(wifiDbus, "[ METHOD ] Open WiFi Connection. [ Start ]");
     if(d->m_wpa) {
         d->m_wpa->connect();
     }
+    qCDebug(wifiDbus, "[ METHOD ] Open WiFi Connection. [ End ]");
 }
 
 void WifiDbusStationStub::Close()
 {
     Q_D(WifiDbusStationStub);
+    qCDebug(wifiDbus, "[ METHOD ] Close WiFi Connection. [ Start ]");
     if(d->m_wpa) {
         d->m_wpa->disconnect();
     }
+    qCDebug(wifiDbus, "[ METHOD ] Close WiFi Connection. [ End ]");
 }
 
 void WifiDbusStationStub::AddNetwork(const QString &ssid,
                                      const QString &password)
 {
     Q_D(WifiDbusStationStub);
+    qCDebug(wifiDbus, "[ METHOD ] Add WiFi Network. [ Start ]\n%s",
+            qUtf8Printable(ssid));
     if(d->m_wpa) {
         int id = d->m_wpa->addNetwork(ssid, password);
         d->m_wpa->selectNetwork(id);
     }
+    qCDebug(wifiDbus, "[ METHOD ] Add WiFi Network. [ End ]\n%s",
+            qUtf8Printable(ssid));
 }
 
 void WifiDbusStationStub::RemoveNetwork(int id)
 {
     Q_D(WifiDbusStationStub);
+    qCDebug(wifiDbus, "[ METHOD ] Remove WiFi Network. [ Start ]\n%d", id);
     if(d->m_wpa) {
         d->m_wpa->removeNetwork(id);
     }
+    qCDebug(wifiDbus, "[ METHOD ] Remove WiFi Network. [ End ]\n%d", id);
 }
 
 void WifiDbusStationStub::SelectNetwork(int id)
 {
     Q_D(WifiDbusStationStub);
+    qCDebug(wifiDbus, "[ METHOD ] Select WiFi Network. [ Start ]\n%d", id);
     if(d->m_wpa) {
         d->m_wpa->selectNetwork(id);
     }
+    qCDebug(wifiDbus, "[ METHOD ] Select WiFi Network. [ End ]\n%d", id);
 }

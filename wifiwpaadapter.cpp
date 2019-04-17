@@ -35,7 +35,7 @@ extern "C"
 Q_LOGGING_CATEGORY(wifiWPAAdapter, "wifi.helper.wpa.adapter")
 
 // The number of update status triggered by the PING
-#define NUMBER_PING_UPDATE_STATUS 3
+#define NUMBER_PING_UPDATE_STATUS 5
 // Signal strength refresh interval in milliseconds
 #define INTERVAL_SIGNAL_UPDATE 5000
 
@@ -1605,20 +1605,20 @@ void WifiWPAAdapterPrivate::selectNetwork(int id)
                    id);
         return;
     }
+    QString ssid = net->ssid();
+
     qCDebug(wifiWPAAdapter,
             "SELECT_NETWORK %d [ Start ]\n%s",
-            net->id(),
-            qUtf8Printable(net->ssid()));
+            id, qUtf8Printable(ssid));
 
-    QString cmd = QString::number(net->id());
+    QString cmd = QString::number(id);
     cmd.prepend("SELECT_NETWORK ");
     ctrlRequest(cmd.toLocal8Bit().constData(), reply, &reply_len);
     triggerUpdate();
     //  stopWpsRun(false);
     qCDebug(wifiWPAAdapter,
             "SELECT_NETWORK %d [ End ]\n%s",
-            net->id(),
-            qUtf8Printable(net->ssid()));
+            id, qUtf8Printable(ssid));
 }
 
 void WifiWPAAdapterPrivate::removeNetwork(const QString &ssid)
@@ -1658,10 +1658,11 @@ void WifiWPAAdapterPrivate::removeNetwork(int id)
                    id);
         return;
     }
+    QString ssid = net->ssid();
+
     qCDebug(wifiWPAAdapter,
             "REMOVE_NETWORK %d [ Start ]\n%s",
-            net->id(),
-            qUtf8Printable(net->ssid()));
+            id, qUtf8Printable(ssid));
 
     snprintf(cmd, sizeof(cmd), "REMOVE_NETWORK %d", id);
     reply_len = sizeof(reply);
@@ -1677,8 +1678,7 @@ void WifiWPAAdapterPrivate::removeNetwork(int id)
 
     qCDebug(wifiWPAAdapter,
             "REMOVE_NETWORK %d [ End ]\n%s",
-            net->id(),
-            qUtf8Printable(net->ssid()));
+            id, qUtf8Printable(ssid));
 }
 
 WifiWPAAdapter::WifiWPAAdapter(QObject *parent)
