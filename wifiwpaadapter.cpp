@@ -382,6 +382,8 @@ void WifiWPAAdapterPrivate::updateStatus()
             m_rssiValue = -100;
         }
     }
+
+    scanRequest();
 }
 
 void WifiWPAAdapterPrivate::paramsFromConfig(WifiNetwork *network)

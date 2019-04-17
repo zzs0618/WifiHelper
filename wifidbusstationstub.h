@@ -34,6 +34,12 @@ public:
     explicit WifiDbusStationStub(WifiWPAAdapter *wpa, QObject *parent = nullptr);
 
 public: // PROPERTIES
+    Q_PROPERTY(QString AccessPoints READ accessPoints)
+    QString accessPoints() const;
+
+    Q_PROPERTY(QString Status READ status)
+    QString status() const;
+
 public Q_SLOTS: // METHODS
     void Open();
     void Close();
@@ -42,7 +48,10 @@ public Q_SLOTS: // METHODS
     void SelectNetwork(int id);
 
 Q_SIGNALS: // SIGNALS
-    void AccessPointUpdate(const QString &point);
+    void AccessPointAdded(const QString &point);
+    void AccessPointUpdated(const QString &point);
+    void AccessPointRemoved(const QString &point);
+    void NetworkUpdate(const QString &network);
     void StatusChanged(const QString &status);
 
 
