@@ -33,6 +33,7 @@ extern "C"
 
 // in one source file
 Q_LOGGING_CATEGORY(wifiWPAAdapter, "wifi.helper.wpa.adapter")
+Q_LOGGING_CATEGORY(wifiWPAP2P, "wifi.helper.wpa.p2p")
 
 // The number of update status triggered by the PING
 #define NUMBER_PING_UPDATE_STATUS 5
@@ -88,6 +89,7 @@ public:
     void paramsFromConfig(WifiNetwork *network);
     void updateNetworks();
     void receiveMsgs();
+    void p2p_event_notify(QString msg);
     void processMsg(char *msg);
     WifiAccessPoint *getAccessPointBySSID(const QString &ssid);
     WifiNetwork *getNetworkBySSID(const QString &ssid);
@@ -101,6 +103,10 @@ public:
     void scanRequest();
     void updateScanResults();
     void triggerUpdate();
+
+    void p2p_start();
+    void p2p_stop();
+    void p2p_connectPBC(const QString &address);
 
     int addNetwork(const QString &ssid, const QString &password);
     void selectNetwork(const QString &ssid);
@@ -133,6 +139,7 @@ public:
     int m_rssiValue = -100;
     QList<WifiAccessPoint *> m_accessPoints;
     QList<WifiNetwork *> m_networks;
+    QList<WifiP2PDevice *> m_p2pDevcies;
     QStringList m_allInterfaceFiles;
     QString m_interface;
 
@@ -838,6 +845,161 @@ void WifiWPAAdapterPrivate::receiveMsgs()
     }
 }
 
+void WifiWPAAdapterPrivate::p2p_event_notify(QString msg)
+{
+    QString text = msg;
+
+    if (text.startsWith(P2P_EVENT_DEVICE_FOUND)) {
+        /*
+         * P2P-DEVICE-FOUND 02:b5:64:63:30:63
+         * p2p_dev_addr=02:b5:64:63:30:63 pri_dev_type=1-0050f204-1
+         * name='Wireless Client' config_methods=0x84 dev_capab=0x21
+         * group_capab=0x0
+         */
+        QStringList items = text.split(QRegExp(" (?=[^']*('[^']*'[^']*)*$)"));
+        QString addr = items[1];
+        QString name = "";
+        QString pri_dev_type;
+        int config_methods = 0;
+        for (int i = 0; i < items.size(); i++) {
+            QString str = items.at(i);
+            if (str.startsWith("name='")) {
+                name = str.section('\'', 1, -2);
+            } else if (str.startsWith("config_methods=")) {
+                config_methods = str.section('=', 1).toInt(0, 0);
+            } else if (str.startsWith("pri_dev_type=")) {
+                pri_dev_type = str.section('=', 1);
+            }
+        }
+        Wifi::DeviceType type = Wifi::DeviceUnknown;
+        QString dev_type = pri_dev_type.split('-')[0];
+        if(dev_type == "1") {
+            type = Wifi::DevicePC;
+        } else if(dev_type == "10") {
+            type = Wifi::DevicePhone;
+        }
+        qCDebug(wifiWPAP2P) << text << config_methods;
+
+        WifiP2PDevice *device = new WifiP2PDevice(name, addr, type);
+        m_p2pDevcies << device;
+        Q_EMIT q_func()->p2pDeviceFound(m_p2pDevcies.indexOf(device));
+    } else if (text.startsWith(P2P_EVENT_GROUP_STARTED)) {
+        /* P2P-GROUP-STARTED wlan0-p2p-0 GO ssid="DIRECT-3F"
+         * passphrase="YOyTkxID" go_dev_addr=02:40:61:c2:f3:b7
+         * [PERSISTENT] */
+        QStringList items = text.split(' ');
+        if (items.size() < 4) {
+            return;
+        }
+
+        int pos = text.indexOf(" ssid=\"");
+        if (pos < 0) {
+            return;
+        }
+        QString ssid = text.mid(pos + 7);
+        pos = ssid.indexOf(" passphrase=\"");
+        if (pos < 0) {
+            pos = ssid.indexOf(" psk=");
+        }
+        if (pos >= 0) {
+            ssid.truncate(pos);
+        }
+        pos = ssid.lastIndexOf('"');
+        if (pos >= 0) {
+            ssid.truncate(pos);
+        }
+
+        QString group = items[1];
+        QString type = items[2];
+
+        qCDebug(wifiWPAP2P) << text;
+        qCDebug(wifiWPAP2P) << "P2P_EVENT_GROUP_STARTED" << group << type;
+    } else if (text.startsWith(P2P_EVENT_GROUP_REMOVED)) {
+        /* P2P-GROUP-REMOVED wlan0-p2p-0 GO */
+        QStringList items = text.split(' ');
+        if (items.size() < 2) {
+            return;
+        }
+
+        QString group = items[1];
+        QString type = items[2];
+        qCDebug(wifiWPAP2P) << text;
+        qCDebug(wifiWPAP2P) << "P2P_EVENT_GROUP_REMOVED" << group << type;
+        return;
+    } else if (text.startsWith(P2P_EVENT_PROV_DISC_SHOW_PIN)) {
+        /* P2P-PROV-DISC-SHOW-PIN 02:40:61:c2:f3:b7 12345670 */
+        QStringList items = text.split(' ');
+        if (items.size() < 3) {
+            return;
+        }
+
+        QString addr = items[1];
+        QString pin = items[2];
+        qCDebug(wifiWPAP2P) << text;
+        qCDebug(wifiWPAP2P) << "P2P_EVENT_PROV_DISC_SHOW_PIN" << addr << pin;
+        return;
+    } else if (text.startsWith(P2P_EVENT_PROV_DISC_ENTER_PIN)) {
+        /* P2P-PROV-DISC-ENTER-PIN 02:40:61:c2:f3:b7 */
+        QStringList items = text.split(' ');
+        if (items.size() < 2) {
+            return;
+        }
+        QString addr = items[1];
+        qCDebug(wifiWPAAdapter) << text;
+        qCDebug(wifiWPAP2P) << "P2P_EVENT_PROV_DISC_ENTER_PIN" << addr;
+        return;
+    } else if (text.startsWith(P2P_EVENT_INVITATION_RECEIVED)) {
+        /* P2P-INVITATION-RECEIVED sa=02:f0:bc:44:87:62 persistent=4 */
+        QStringList items = text.split(' ');
+        if (items.size() < 3) {
+            return;
+        }
+        if (!items[1].startsWith("sa=") ||
+            !items[2].startsWith("persistent=")) {
+            return;
+        }
+        QString addr = items[1].mid(3);
+        int id = items[2].mid(11).toInt();
+
+        char cmd[100];
+        char reply[100];
+        size_t reply_len;
+
+        snprintf(cmd, sizeof(cmd), "GET_NETWORK %d ssid", id);
+        reply_len = sizeof(reply) - 1;
+        if (this->ctrlRequest(cmd, reply, &reply_len) < 0) {
+            return;
+        }
+        reply[reply_len] = '\0';
+        QString name;
+        char *pos = strrchr(reply, '"');
+        if (pos && reply[0] == '"') {
+            *pos = '\0';
+            name = reply + 1;
+        } else {
+            name = reply;
+        }
+        qCDebug(wifiWPAP2P) << text;
+        qCDebug(wifiWPAP2P) << "P2P_EVENT_INVITATION_RECEIVED" << addr << name;
+        return;
+    } else if (text.startsWith(P2P_EVENT_INVITATION_RESULT)) {
+        /* P2P-INVITATION-RESULT status=1 */
+        /* TODO */
+        qCDebug(wifiWPAP2P) << text;
+        return;
+    } else if (text.startsWith(AP_STA_CONNECTED)) {
+        qCDebug(wifiWPAP2P) << text;
+        return;
+    } else if (text.startsWith(AP_STA_DISCONNECTED)) {
+        qCDebug(wifiWPAP2P) << text;
+        return;
+    } else if (text.startsWith("P2P")) {
+        qCDebug(wifiWPAP2P) << text;
+        return;
+    }
+
+}
+
 void WifiWPAAdapterPrivate::processMsg(char *msg)
 {
     char *copy = NULL, *id, *pos2;
@@ -855,13 +1017,16 @@ void WifiWPAAdapterPrivate::processMsg(char *msg)
             pos = msg;
         }
     }
+
+    this->p2p_event_notify(QString(pos));
+
     /*
         WpaMsg wm(pos, priority);
         if (eh) {
             eh->addEvent(wm);
         }
         if (peers) {
-            peers->event_notify(wm);
+            this->event_notify(wm);
         }
         msgs.append(wm);
         while (msgs.count() > 100) {
@@ -1051,9 +1216,6 @@ void WifiWPAAdapterPrivate::processMsg(char *msg)
                 pos);
     } else if (str_starts(pos, P2P_EVENT_GO_NEG_FAILURE)) {
         qCDebug(wifiWPAAdapter, "[ MSG ] = P2P_EVENT_GO_NEG_FAILURE\n%s",
-                pos);
-    } else if (str_starts(pos, "P2P")) {
-        qCDebug(wifiWPAAdapter, "[ MSG ] = P2P\n%s",
                 pos);
     } else if (str_starts(pos, AP_STA_CONNECTED)) {
         qCDebug(wifiWPAAdapter, "[ MSG ] = AP_STA_CONNECTED\n%s",
@@ -1414,6 +1576,49 @@ void WifiWPAAdapterPrivate::triggerUpdate()
     updateNetworks();
 }
 
+void WifiWPAAdapterPrivate::p2p_start()
+{
+    char reply[20];
+    size_t reply_len;
+    reply_len = sizeof(reply) - 1;
+    qDeleteAll(m_p2pDevcies);
+    m_p2pDevcies.clear();
+    Q_EMIT q_func()->p2pDeviceCleared();
+    if (this->ctrlRequest("P2P_FIND", reply, &reply_len) < 0 ||
+        memcmp(reply, "FAIL", 4) == 0) {
+
+        qCCritical(wifiWPAP2P, "Failed to start P2P discovery.\n%s",
+                   reply);
+    }
+}
+
+void WifiWPAAdapterPrivate::p2p_stop()
+{
+    char reply[20];
+    size_t reply_len;
+    reply_len = sizeof(reply) - 1;
+    this->ctrlRequest("P2P_STOP_FIND", reply, &reply_len);
+    qDeleteAll(m_p2pDevcies);
+    m_p2pDevcies.clear();
+    Q_EMIT q_func()->p2pDeviceCleared();
+}
+
+void WifiWPAAdapterPrivate::p2p_connectPBC(const QString &address)
+{
+    char cmd[100];
+    char reply[100];
+    size_t reply_len;
+
+    snprintf(cmd, sizeof(cmd), "P2P_CONNECT %s pbc",
+             address.toLocal8Bit().constData());
+
+    reply_len = sizeof(reply) - 1;
+    if (this->ctrlRequest(cmd, reply, &reply_len) < 0) {
+        qCCritical(wifiWPAP2P, "Failed to start WPS PBC.\n%s",
+                   reply);
+    }
+}
+
 int WifiWPAAdapterPrivate::addNetwork(const QString &ssid,
                                       const QString &password)
 {
@@ -1742,6 +1947,23 @@ void WifiWPAAdapter::scan()
     d->scanRequest();
 }
 
+void WifiWPAAdapter::p2p_start()
+{
+    Q_D(WifiWPAAdapter);
+    d->p2p_start();
+}
+void WifiWPAAdapter::p2p_stop()
+{
+    Q_D(WifiWPAAdapter);
+    d->p2p_stop();
+}
+
+void WifiWPAAdapter::p2p_connectPBC(const QString &address)
+{
+    Q_D(WifiWPAAdapter);
+    d->p2p_connectPBC(address);
+}
+
 int WifiWPAAdapter::addNetwork(const QString &ssid, const QString &password)
 {
     Q_D(WifiWPAAdapter);
@@ -1815,4 +2037,11 @@ QList<WifiNetwork *> WifiWPAAdapter::networks()
 {
     Q_D(WifiWPAAdapter);
     return d->m_networks;
+}
+
+// 获取当前P2P列表
+QList<WifiP2PDevice *> WifiWPAAdapter::p2pDevcies()
+{
+    Q_D(WifiWPAAdapter);
+    return d->m_p2pDevcies;
 }

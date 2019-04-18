@@ -22,10 +22,12 @@
 #include "wifi.h"
 #include "wifiaccesspoint.h"
 #include "wifinetwork.h"
+#include "wifip2pdevice.h"
 #include <QLoggingCategory>
 
 // in a header
 Q_DECLARE_LOGGING_CATEGORY(wifiWPAAdapter)
+Q_DECLARE_LOGGING_CATEGORY(wifiWPAP2P)
 
 class WifiWPAAdapterPrivate;
 class WifiWPAAdapter : public QObject
@@ -51,6 +53,8 @@ public:
     QList<WifiAccessPoint *> accessPoints();
     // 获取当前WiFi网络列表
     QList<WifiNetwork *> networks();
+    // 获取当前P2P列表
+    QList<WifiP2PDevice *> p2pDevcies();
 
     int addNetwork(const QString &ssid, const QString &password);
 
@@ -62,6 +66,8 @@ signals:
     void statusChanged();
     void accessPointsChanged();
     void networksChanged();
+    void p2pDeviceFound(int index);
+    void p2pDeviceCleared();
 
 public slots:
     void selectInterface(const QString &iface);
@@ -69,6 +75,10 @@ public slots:
     bool disconnect();
     void saveConfig();
     void scan();
+
+    void p2p_start();
+    void p2p_stop();
+    void p2p_connectPBC(const QString &address);
 
 private:
     Q_DECLARE_PRIVATE(WifiWPAAdapter)

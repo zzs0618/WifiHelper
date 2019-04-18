@@ -12,6 +12,7 @@ CONFIG -= app_bundle
 TEMPLATE = app
 
 DBUS_ADAPTORS += wifi.helper.station.xml
+DBUS_ADAPTORS += wifi.helper.peers.xml
 
 DEFINES += CONFIG_CTRL_IFACE
 
@@ -80,7 +81,9 @@ HEADERS += \
     wifi.h \
     wifinetwork.h \
     wifidbusservice.h \
-    wifidbusstationstub.h
+    wifidbusstationstub.h \
+    wifip2pdevice.h \
+    wifidbuspeersstub.h
 
 SOURCES += main.cpp \
     3rdparty/wpa_supplicant/src/common/wpa_ctrl.c \
@@ -89,7 +92,9 @@ SOURCES += main.cpp \
     wifi.cpp \
     wifinetwork.cpp \
     wifidbusservice.cpp \
-    wifidbusstationstub.cpp
+    wifidbusstationstub.cpp \
+    wifip2pdevice.cpp \
+    wifidbuspeersstub.cpp
 
 # The following define makes your compiler emit warnings if you use
 # any feature of Qt which as been marked deprecated (the exact warnings

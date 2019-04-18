@@ -16,34 +16,33 @@
  ** along with this program.  If not, see <http://www.gnu.org/licenses/>.
  **/
 
-#include "wifidbusservice.h"
-#include "wifidbusstationstub.h"
-#include "wifidbuspeersstub.h"
+#ifndef WIFIDBUSPEERSSTUB_H
+#define WIFIDBUSPEERSSTUB_H
+
+#include <QObject>
+#include <QLoggingCategory>
 #include "wifiwpaadapter.h"
 
-#include "station_adaptor.h"
-#include "peers_adaptor.h"
+// in a header
+Q_DECLARE_LOGGING_CATEGORY(wifiDbusPeers)
 
-
-WifiDbusService::WifiDbusService(QObject *parent) : QThread(parent)
+class WifiDbusPeersStubPrivate;
+class WifiDbusPeersStub : public QObject
 {
-}
+    Q_OBJECT
+public:
+    explicit WifiDbusPeersStub(WifiWPAAdapter *wpa, QObject *parent = nullptr);
 
-void WifiDbusService::run()
-{
-    WifiWPAAdapter *wpa = new WifiWPAAdapter;
-    WifiDbusStationStub *station = new WifiDbusStationStub(wpa);
-    WifiDbusPeersStub *peers = new WifiDbusPeersStub(wpa);
+public: // PROPERTIES
+public Q_SLOTS: // METHODS
+    void Connect(const QString &param);
+    void Start();
+    void Stop();
+Q_SIGNALS: // SIGNALS
+    void DeviceFound(const QString &device);
 
-    QDBusConnection connection = QDBusConnection::systemBus();
-    new StationAdaptor(station);
-    new PeersAdaptor(peers);
-    connection.registerObject("/Station", station);
-    connection.registerObject("/Peers", peers);
-    connection.registerService("wifi.helper.service");
+private:
+    Q_DECLARE_PRIVATE(WifiDbusPeersStub)
+};
 
-    wpa->selectInterface("wlan0");
-    wpa->scan();
-
-    QThread::exec();
-}
+#endif // WIFIDBUSPEERSSTUB_H

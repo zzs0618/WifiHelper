@@ -78,7 +78,7 @@ void WifiDbusStationStubPrivate::onWPAStatusChanged()
 
     QJsonDocument doc = QJsonDocument::fromVariant(station);
 
-    qCDebug(wifiDbus, "[ SIGNAL ] Notify WiFi status to client.\n%s",
+    qCDebug(wifiDbus, "[ SIGNAL ] Notify WiFi status to WiFiClient.\n%s",
             qUtf8Printable(doc.toJson()));
 
     Q_EMIT q_func()->StatusChanged(doc.toJson(QJsonDocument::Compact));
@@ -113,7 +113,7 @@ void WifiDbusStationStubPrivate::onWPAAccessPointsChanged()
     }
     if(!removeList.isEmpty()) {
         QJsonDocument doc = QJsonDocument::fromVariant(removeList);
-        qCDebug(wifiDbus, "[ SIGNAL ] Removed WiFi AP List to client .\n%s",
+        qCDebug(wifiDbus, "[ SIGNAL ] Removed WiFi AP List to WiFiClient .\n%s",
                 qUtf8Printable(doc.toJson()));
 
         Q_EMIT q_func()->AccessPointRemoved(doc.toJson(QJsonDocument::Compact));
@@ -127,7 +127,7 @@ void WifiDbusStationStubPrivate::onWPAAccessPointsChanged()
     }
     if(!addList.isEmpty()) {
         QJsonDocument doc = QJsonDocument::fromVariant(addList);
-        qCDebug(wifiDbus, "[ SIGNAL ] Added WiFi AP List to client.\n%s",
+        qCDebug(wifiDbus, "[ SIGNAL ] Added WiFi AP List to WiFiClient.\n%s",
                 qUtf8Printable(doc.toJson()));
 
         Q_EMIT q_func()->AccessPointAdded(doc.toJson(QJsonDocument::Compact));
@@ -145,7 +145,7 @@ void WifiDbusStationStubPrivate::onWPAAccessPointsChanged()
     }
     if(!editList.isEmpty()) {
         QJsonDocument doc = QJsonDocument::fromVariant(editList);
-        qCDebug(wifiDbus, "[ SIGNAL ] Updated WiFi AP List to client.\n%s",
+        qCDebug(wifiDbus, "[ SIGNAL ] Updated WiFi AP List to WiFiClient.\n%s",
                 qUtf8Printable(doc.toJson()));
 
         Q_EMIT q_func()->AccessPointUpdated(doc.toJson(QJsonDocument::Compact));
@@ -181,7 +181,7 @@ void WifiDbusStationStubPrivate::onWPANetworksChanged()
     }
     if(!editList.isEmpty()) {
         QJsonDocument doc = QJsonDocument::fromVariant(editList);
-        qCDebug(wifiDbus, "[ SIGNAL ] Updated WiFi Net List to client.\n%s",
+        qCDebug(wifiDbus, "[ SIGNAL ] Updated WiFi Net List to WiFiClient.\n%s",
                 qUtf8Printable(doc.toJson()));
 
         Q_EMIT q_func()->AccessPointUpdated(doc.toJson(QJsonDocument::Compact));

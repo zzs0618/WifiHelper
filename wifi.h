@@ -43,6 +43,12 @@ namespace Wifi
     };
     Q_DECLARE_FLAGS(Encrytions, Encrytion)
 
+    enum DeviceType {
+        DeviceUnknown,
+        DevicePhone,
+        DevicePC
+    };
+
     QString toString(Securitys auths);
     QString toString(Encrytions encrs);
 }
@@ -51,5 +57,6 @@ Q_DECLARE_METATYPE(Wifi::Security)
 Q_DECLARE_METATYPE(Wifi::Securitys)
 Q_DECLARE_METATYPE(Wifi::Encrytion)
 Q_DECLARE_METATYPE(Wifi::Encrytions)
+Q_DECLARE_METATYPE(Wifi::DeviceType)
 
 #endif // WIFI_H
