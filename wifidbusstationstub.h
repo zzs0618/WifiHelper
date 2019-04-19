@@ -54,7 +54,6 @@ Q_SIGNALS: // SIGNALS
     void AccessPointRemoved(const QString &point);
     void AccessPointUpdated(const QString &point);
     void IsOpenChanged(bool isOpen);
-    void NetworkUpdate(const QString &network);
     void StatusChanged(const QString &status);
 
 private:
