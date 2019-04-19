@@ -1,7 +1,5 @@
 [Unit]
 Description=The service of WiFiHelper
-After=wpa.service
-Requires=wpa.service
 
 [Service]
 EnvironmentFile=/etc/wifihelper.conf

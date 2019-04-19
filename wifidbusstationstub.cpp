@@ -34,6 +34,7 @@ public:
 
     QStringList compareAccessPoint(const QVariantMap &a, const QVariantMap &b);
 
+    void onWPAIsOpenChanged();
     void onWPAStatusChanged();
     void onWPAAccessPointsChanged();
     void onWPANetworksChanged();
@@ -64,6 +65,12 @@ QStringList WifiDbusStationStubPrivate::compareAccessPoint(const QVariantMap &a,
         }
     }
     return list;
+}
+
+void WifiDbusStationStubPrivate::onWPAIsOpenChanged()
+{
+    bool isOpen = q_func()->isOpen();
+    Q_EMIT q_func()->IsOpenChanged(isOpen);
 }
 
 void WifiDbusStationStubPrivate::onWPAStatusChanged()
@@ -193,12 +200,23 @@ WifiDbusStationStub::WifiDbusStationStub(WifiWPAAdapter *wpa, QObject *parent)
 {
     Q_D(WifiDbusStationStub);
     d->m_wpa = wpa;
+    QObjectPrivate::connect(d->m_wpa, &WifiWPAAdapter::isOpenChanged, d,
+                            &WifiDbusStationStubPrivate::onWPAIsOpenChanged);
     QObjectPrivate::connect(d->m_wpa, &WifiWPAAdapter::statusChanged, d,
                             &WifiDbusStationStubPrivate::onWPAStatusChanged);
     QObjectPrivate::connect(d->m_wpa, &WifiWPAAdapter::accessPointsChanged, d,
                             &WifiDbusStationStubPrivate::onWPAAccessPointsChanged);
     QObjectPrivate::connect(d->m_wpa, &WifiWPAAdapter::networksChanged, d,
                             &WifiDbusStationStubPrivate::onWPANetworksChanged);
+}
+
+bool WifiDbusStationStub::isOpen() const
+{
+    Q_D(const WifiDbusStationStub);
+    if(d->m_wpa) {
+        return d->m_wpa->isOpen();
+    }
+    return false;
 }
 
 QString WifiDbusStationStub::accessPoints() const
@@ -231,21 +249,21 @@ QString WifiDbusStationStub::status() const
 void WifiDbusStationStub::Open()
 {
     Q_D(WifiDbusStationStub);
-    qCDebug(wifiDbus, "[ METHOD ] Open WiFi Connection. [ Start ]");
+    qCDebug(wifiDbus, "[ METHOD ] Open WiFi. [ Start ]");
     if(d->m_wpa) {
-        d->m_wpa->connect();
+        d->m_wpa->open();
     }
-    qCDebug(wifiDbus, "[ METHOD ] Open WiFi Connection. [ End ]");
+    qCDebug(wifiDbus, "[ METHOD ] Open WiFi. [ End ]");
 }
 
 void WifiDbusStationStub::Close()
 {
     Q_D(WifiDbusStationStub);
-    qCDebug(wifiDbus, "[ METHOD ] Close WiFi Connection. [ Start ]");
+    qCDebug(wifiDbus, "[ METHOD ] Close WiFi. [ Start ]");
     if(d->m_wpa) {
-        d->m_wpa->disconnect();
+        d->m_wpa->close();
     }
-    qCDebug(wifiDbus, "[ METHOD ] Close WiFi Connection. [ End ]");
+    qCDebug(wifiDbus, "[ METHOD ] Close WiFi. [ End ]");
 }
 
 void WifiDbusStationStub::AddNetwork(const QString &ssid,

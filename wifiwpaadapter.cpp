@@ -23,6 +23,7 @@
 #include <QTimer>
 #include <QDir>
 #include <QList>
+#include <QProcess>
 
 extern "C"
 {
@@ -95,6 +96,9 @@ public:
     WifiNetwork *getNetworkBySSID(const QString &ssid);
     WifiNetwork *getNetworkById(int id);
 
+    void open();
+    void close();
+
     bool openWPAConnection(const QString &iface);
     bool connect();
     bool disconnect();
@@ -122,6 +126,8 @@ public:
     bool networkMayHaveChanged = false;
     QByteArray action_dhcpc = "/sbin/dhcpc_action.sh";
     QByteArray action_dhcpd = "/sbin/dhcpd_action.sh";
+
+    QProcess *app_wpa = NULL;
 
     struct wpa_ctrl *ctrl_conn = NULL;
     struct wpa_ctrl *monitor_conn = NULL;
@@ -176,18 +182,7 @@ WifiWPAAdapterPrivate::WifiWPAAdapterPrivate()
 
 WifiWPAAdapterPrivate::~WifiWPAAdapterPrivate()
 {
-    if (monitor_conn) {
-        wpa_ctrl_detach(monitor_conn);
-        wpa_ctrl_close(monitor_conn);
-        monitor_conn = NULL;
-    }
-    if (ctrl_conn) {
-        wpa_ctrl_close(ctrl_conn);
-        ctrl_conn = NULL;
-    }
-
-    qDeleteAll(m_accessPoints);
-    m_accessPoints.clear();
+    this->close();
 }
 
 QString WifiWPAAdapterPrivate::wpaStateTranslate(char *state)
@@ -1288,6 +1283,95 @@ int WifiWPAAdapterPrivate::setNetworkParam(int id, const char *field,
     return strncmp(reply, "OK", 2) == 0 ? 0 : -1;
 }
 
+void WifiWPAAdapterPrivate::open()
+{
+    if(qEnvironmentVariableIsEmpty("WIFI_HELPER_CMD_WPA")) {
+        return;
+    }
+    QString cmd_wpa = QString::fromLocal8Bit(qgetenv("WIFI_HELPER_CMD_WPA"));
+
+    if(app_wpa == NULL) {
+        qCDebug(wifiWPAAdapter, "First to Open WIFI.");
+        app_wpa = new QProcess();
+    }
+
+    if(app_wpa->state() == QProcess::NotRunning) {
+        qCDebug(wifiWPAAdapter, "Open WIFI [ Start ].");
+        app_wpa->start(cmd_wpa);
+        bool success = app_wpa->waitForStarted(5000);
+
+        if(!success) {
+            return;
+        }
+
+        timer->start(1000);
+        updateStatus();
+        networkMayHaveChanged = true;
+        updateNetworks();
+
+        Q_EMIT q_func()->isOpenChanged();
+        qCDebug(wifiWPAAdapter, "Open WIFI [ End ].");
+    } else {
+        qCDebug(wifiWPAAdapter, "Open WIFI [ Running ].");
+    }
+}
+
+#include <QThread>
+void WifiWPAAdapterPrivate::close()
+{
+    if(app_wpa == NULL) {
+        return;
+    }
+
+    if(app_wpa->state() != QProcess::NotRunning) {
+        qCDebug(wifiWPAAdapter, "Close WIFI [ Start ].");
+
+        this->disconnect();
+
+        timer->stop();
+        signalMeterTimer->stop();
+
+        if (monitor_conn) {
+            wpa_ctrl_detach(monitor_conn);
+            wpa_ctrl_close(monitor_conn);
+            monitor_conn = NULL;
+        }
+        if (ctrl_conn) {
+            wpa_ctrl_close(ctrl_conn);
+            ctrl_conn = NULL;
+        }
+
+        qDeleteAll(m_accessPoints);
+        m_accessPoints.clear();
+        Q_EMIT q_func()->accessPointsChanged();
+
+        qDeleteAll(m_p2pDevcies);
+        m_p2pDevcies.clear();
+        Q_EMIT q_func()->p2pDeviceCleared();
+
+        Q_EMIT q_func()->isOpenChanged();
+
+        // TODO: Release DHCP, 比较耗时
+        if (wpa_cli_connected) {
+            wpa_cli_connected = 0;
+            // Release DHCP
+            wpa_cli_exec(action_dhcpc.constData(),
+                         qPrintable(m_interface),
+                         "DISCONNECTED");
+        }
+
+        app_wpa->kill();
+        bool success = app_wpa->waitForFinished(5000);
+        if(!success) {
+            return;
+        }
+
+        qCDebug(wifiWPAAdapter, "Close WIFI [ End ].");
+    } else {
+        qCDebug(wifiWPAAdapter, "Close WIFI [ NotRunning ].");
+    }
+}
+
 bool WifiWPAAdapterPrivate::openWPAConnection(const QString &iface)
 {
     QString ifile = WPACtrlIfaceDir + "/" + iface;
@@ -1895,20 +1979,25 @@ WifiWPAAdapter::WifiWPAAdapter(QObject *parent)
     QObjectPrivate::connect(d->timer, &QTimer::timeout, d,
                             &WifiWPAAdapterPrivate::ping);
     d->timer->setSingleShot(false);
-    d->timer->start(1000);
 
-    d->signalMeterTimer = new QTimer;
+    d->signalMeterTimer = new QTimer(this);
     d->signalMeterTimer->setInterval(d->signalMeterInterval);
     QObjectPrivate::connect(d->signalMeterTimer, &QTimer::timeout, d,
                             &WifiWPAAdapterPrivate::signalMeterUpdate);
-
-    d->updateStatus();
-    d->networkMayHaveChanged = true;
-    d->updateNetworks();
 }
 
 WifiWPAAdapter::~WifiWPAAdapter()
 {
+}
+void WifiWPAAdapter::open()
+{
+    Q_D(WifiWPAAdapter);
+    d->open();
+}
+void WifiWPAAdapter::close()
+{
+    Q_D(WifiWPAAdapter);
+    d->close();
 }
 
 void WifiWPAAdapter::selectInterface(const QString &iface)
@@ -1986,6 +2075,12 @@ void WifiWPAAdapter::removeNetwork(int id)
 {
     Q_D(WifiWPAAdapter);
     d->removeNetwork(id);
+}
+
+bool WifiWPAAdapter::isOpen() const
+{
+    Q_D(const WifiWPAAdapter);
+    return d->app_wpa != NULL && d->app_wpa->state() == QProcess::Running;
 }
 
 // 已连接WIFI的SSID

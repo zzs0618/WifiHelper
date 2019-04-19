@@ -43,7 +43,6 @@ void WifiDbusService::run()
     connection.registerService("wifi.helper.service");
 
     wpa->selectInterface("wlan0");
-    wpa->scan();
 
     QThread::exec();
 }

@@ -37,23 +37,25 @@ public: // PROPERTIES
     Q_PROPERTY(QString AccessPoints READ accessPoints)
     QString accessPoints() const;
 
+    Q_PROPERTY(bool IsOpen READ isOpen)
+    bool isOpen() const;
+
     Q_PROPERTY(QString Status READ status)
     QString status() const;
 
 public Q_SLOTS: // METHODS
-    void Open();
-    void Close();
     void AddNetwork(const QString &ssid, const QString &password);
+    void Close();
+    void Open();
     void RemoveNetwork(int id);
     void SelectNetwork(int id);
-
 Q_SIGNALS: // SIGNALS
     void AccessPointAdded(const QString &point);
-    void AccessPointUpdated(const QString &point);
     void AccessPointRemoved(const QString &point);
+    void AccessPointUpdated(const QString &point);
+    void IsOpenChanged(bool isOpen);
     void NetworkUpdate(const QString &network);
     void StatusChanged(const QString &status);
-
 
 private:
     Q_DECLARE_PRIVATE(WifiDbusStationStub)

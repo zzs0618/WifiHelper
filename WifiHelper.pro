@@ -46,7 +46,8 @@ win32 {
         conf.path = /etc
         conf.files = $$PWD/install/wifihelper.conf \
                      $$PWD/install/dnsmasq.conf \
-                     $$PWD/install/wpa_supplicant.conf
+                     $$PWD/install/wpa_supplicant.conf \
+                     $$PWD/install/p2p_supplicant.conf
         INSTALLS += conf
 
         udhcpc.path = /etc/udhcpc.d

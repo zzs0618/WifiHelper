@@ -37,6 +37,8 @@ public:
     explicit WifiWPAAdapter(QObject *parent = nullptr);
     ~WifiWPAAdapter();
 
+    bool isOpen() const;
+
     // 已连接WIFI的SSID
     QString ssid() const;
     // 已连接WIFI的SSID
@@ -57,12 +59,12 @@ public:
     QList<WifiP2PDevice *> p2pDevcies();
 
     int addNetwork(const QString &ssid, const QString &password);
-
     void selectNetwork(const QString &ssid);
     void selectNetwork(int id);
     void removeNetwork(int id);
 
 signals:
+    void isOpenChanged();
     void statusChanged();
     void accessPointsChanged();
     void networksChanged();
@@ -70,6 +72,9 @@ signals:
     void p2pDeviceCleared();
 
 public slots:
+    void open();
+    void close();
+
     void selectInterface(const QString &iface);
     bool connect();
     bool disconnect();
