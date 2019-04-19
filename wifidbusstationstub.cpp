@@ -249,53 +249,53 @@ QString WifiDbusStationStub::status() const
 void WifiDbusStationStub::Open()
 {
     Q_D(WifiDbusStationStub);
-    qCDebug(wifiDbus, "[ METHOD ] Open WiFi. [ Start ]");
+    qCInfo(wifiDbus, "[ METHOD ] Open WiFi. [ Start ]");
     if(d->m_wpa) {
         d->m_wpa->open();
     }
-    qCDebug(wifiDbus, "[ METHOD ] Open WiFi. [ End ]");
+    qCInfo(wifiDbus, "[ METHOD ] Open WiFi. [ End ]");
 }
 
 void WifiDbusStationStub::Close()
 {
     Q_D(WifiDbusStationStub);
-    qCDebug(wifiDbus, "[ METHOD ] Close WiFi. [ Start ]");
+    qCInfo(wifiDbus, "[ METHOD ] Close WiFi. [ Start ]");
     if(d->m_wpa) {
         d->m_wpa->close();
     }
-    qCDebug(wifiDbus, "[ METHOD ] Close WiFi. [ End ]");
+    qCInfo(wifiDbus, "[ METHOD ] Close WiFi. [ End ]");
 }
 
 void WifiDbusStationStub::AddNetwork(const QString &ssid,
                                      const QString &password)
 {
     Q_D(WifiDbusStationStub);
-    qCDebug(wifiDbus, "[ METHOD ] Add WiFi Network. [ Start ]\n%s",
-            qUtf8Printable(ssid));
+    qCInfo(wifiDbus, "[ METHOD ] Add WiFi Network. [ Start ]\n%s",
+           qUtf8Printable(ssid));
     if(d->m_wpa) {
         int id = d->m_wpa->addNetwork(ssid, password);
         d->m_wpa->selectNetwork(id);
     }
-    qCDebug(wifiDbus, "[ METHOD ] Add WiFi Network. [ End ]\n%s",
-            qUtf8Printable(ssid));
+    qCInfo(wifiDbus, "[ METHOD ] Add WiFi Network. [ End ]\n%s",
+           qUtf8Printable(ssid));
 }
 
 void WifiDbusStationStub::RemoveNetwork(int id)
 {
     Q_D(WifiDbusStationStub);
-    qCDebug(wifiDbus, "[ METHOD ] Remove WiFi Network. [ Start ]\n%d", id);
+    qCInfo(wifiDbus, "[ METHOD ] Remove WiFi Network. [ Start ]\n%d", id);
     if(d->m_wpa) {
         d->m_wpa->removeNetwork(id);
     }
-    qCDebug(wifiDbus, "[ METHOD ] Remove WiFi Network. [ End ]\n%d", id);
+    qCInfo(wifiDbus, "[ METHOD ] Remove WiFi Network. [ End ]\n%d", id);
 }
 
 void WifiDbusStationStub::SelectNetwork(int id)
 {
     Q_D(WifiDbusStationStub);
-    qCDebug(wifiDbus, "[ METHOD ] Select WiFi Network. [ Start ]\n%d", id);
+    qCInfo(wifiDbus, "[ METHOD ] Select WiFi Network. [ Start ]\n%d", id);
     if(d->m_wpa) {
         d->m_wpa->selectNetwork(id);
     }
-    qCDebug(wifiDbus, "[ METHOD ] Select WiFi Network. [ End ]\n%d", id);
+    qCInfo(wifiDbus, "[ METHOD ] Select WiFi Network. [ End ]\n%d", id);
 }

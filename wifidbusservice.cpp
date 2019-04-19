@@ -42,7 +42,5 @@ void WifiDbusService::run()
     connection.registerObject("/Peers", peers);
     connection.registerService("wifi.helper.service");
 
-    wpa->selectInterface("wlan0");
-
     QThread::exec();
 }

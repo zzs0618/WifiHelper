@@ -20,10 +20,9 @@
 
 #include <private/qobject_p.h>
 #include <QSocketNotifier>
-#include <QTimer>
-#include <QDir>
-#include <QList>
 #include <QProcess>
+#include <QTimer>
+#include <QList>
 
 extern "C"
 {
@@ -42,6 +41,10 @@ Q_LOGGING_CATEGORY(wifiWPAP2P, "wifi.helper.wpa.p2p")
 #define INTERVAL_SIGNAL_UPDATE 5000
 
 const static QString WPACtrlIfaceDir = QLatin1String("/var/run/wpa_supplicant");
+static QByteArray WPAInterface = "wlan0";
+static QByteArray WPACommand = "wpa_supplicant -c /etc/p2p_supplicant.conf";
+static QByteArray WPAActionDHCPClient = "/sbin/dhcpc_action.sh";
+static QByteArray WPAActionDHCPDeamon = "/sbin/dhcpd_action.sh";
 
 static int str_match(const char *a, const char *b)
 {
@@ -124,8 +127,6 @@ public:
     QTimer *signalMeterTimer = NULL;
     int signalMeterInterval = INTERVAL_SIGNAL_UPDATE;
     bool networkMayHaveChanged = false;
-    QByteArray action_dhcpc = "/sbin/dhcpc_action.sh";
-    QByteArray action_dhcpd = "/sbin/dhcpd_action.sh";
 
     QProcess *app_wpa = NULL;
 
@@ -146,7 +147,6 @@ public:
     QList<WifiAccessPoint *> m_accessPoints;
     QList<WifiNetwork *> m_networks;
     QList<WifiP2PDevice *> m_p2pDevcies;
-    QStringList m_allInterfaceFiles;
     QString m_interface;
 
 protected:
@@ -157,27 +157,18 @@ protected:
 WifiWPAAdapterPrivate::WifiWPAAdapterPrivate()
     : QObjectPrivate()
 {
+    if(!qEnvironmentVariableIsEmpty("WIFI_HELPER_INTERFACE")) {
+        WPAInterface = qgetenv("WIFI_HELPER_INTERFACE");
+    }
+    if(!qEnvironmentVariableIsEmpty("WIFI_HELPER_CMD_WPA")) {
+        WPACommand = qgetenv("WIFI_HELPER_CMD_WPA");
+    }
     if(!qEnvironmentVariableIsEmpty("WIFI_HELPER_ACTION_DHCPC")) {
-        action_dhcpc = qgetenv("WIFI_HELPER_ACTION_DHCPC");
+        WPAActionDHCPClient = qgetenv("WIFI_HELPER_ACTION_DHCPC");
     }
     if(!qEnvironmentVariableIsEmpty("WIFI_HELPER_ACTION_DHCPD")) {
-        action_dhcpd = qgetenv("WIFI_HELPER_ACTION_DHCPD");
+        WPAActionDHCPDeamon = qgetenv("WIFI_HELPER_ACTION_DHCPD");
     }
-
-    // Get All interfaces from the path /var/run/wpa_supplicant
-    QDir dir(WPACtrlIfaceDir);
-    if(dir.exists()) {
-        dir.setFilter(QDir::System);
-        QFileInfoList list = dir.entryInfoList();
-        m_allInterfaceFiles.clear();
-        for(const QFileInfo &iface : list) {
-            m_allInterfaceFiles << iface.filePath();
-        }
-    }
-
-    qCDebug(wifiWPAAdapter, "Get All interfaces from the path("
-            "/var/run/wpa_supplicant) :\n%s",
-            qUtf8Printable(m_allInterfaceFiles.join("\n")));
 }
 
 WifiWPAAdapterPrivate::~WifiWPAAdapterPrivate()
@@ -232,8 +223,8 @@ void WifiWPAAdapterPrivate::signalMeterUpdate()
     }
 
     if(m_rssiValue != rssi_value) {
-        qCDebug(wifiWPAAdapter, "RSSI value: %d of '%s'.", rssi_value,
-                qUtf8Printable(m_ssid));
+        qCInfo(wifiWPAAdapter, "RSSI value: %d of '%s'.", rssi_value,
+               qUtf8Printable(m_ssid));
         m_rssiValue = rssi_value;
     }
 }
@@ -248,8 +239,7 @@ void WifiWPAAdapterPrivate::updateStatus()
 
     len = sizeof(buf) - 1;
     if (ctrl_conn == NULL || ctrlRequest("STATUS", buf, &len) < 0) {
-        qCDebug(wifiWPAAdapter, "Could not get status from wpa_supplicant.");
-
+        qCCritical(wifiWPAAdapter, "Could not get status from wpa_supplicant.");
         signalMeterTimer->stop();
         m_rssiValue = -100;
         return;
@@ -1062,7 +1052,7 @@ void WifiWPAAdapterPrivate::processMsg(char *msg)
         if (wpa_cli_connected) {
             wpa_cli_connected = 0;
             // Release DHCP
-            wpa_cli_exec(action_dhcpc.constData(),
+            wpa_cli_exec(WPAActionDHCPClient.constData(),
                          qPrintable(m_interface),
                          "DISCONNECTED");
         }
@@ -1111,7 +1101,7 @@ void WifiWPAAdapterPrivate::processMsg(char *msg)
             wpa_cli_connected = 1;
             wpa_cli_last_id = new_id;
             // Request DHCP
-            wpa_cli_exec(action_dhcpc.constData(),
+            wpa_cli_exec(WPAActionDHCPClient.constData(),
                          qPrintable(m_interface),
                          "CONNECTED");
         }
@@ -1188,13 +1178,13 @@ void WifiWPAAdapterPrivate::processMsg(char *msg)
     } else if (str_starts(pos, P2P_EVENT_GROUP_STARTED)) {
         qCDebug(wifiWPAAdapter, "[ MSG ] = P2P_EVENT_GROUP_STARTED\n%s",
                 pos);
-        wpa_cli_exec(action_dhcpd.constData(),
+        wpa_cli_exec(WPAActionDHCPDeamon.constData(),
                      qPrintable(m_interface),
                      pos);
     } else if (str_starts(pos, P2P_EVENT_GROUP_REMOVED)) {
         qCDebug(wifiWPAAdapter, "[ MSG ] = P2P_EVENT_GROUP_REMOVED\n%s",
                 pos);
-        wpa_cli_exec(action_dhcpd.constData(),
+        wpa_cli_exec(WPAActionDHCPDeamon.constData(),
                      qPrintable(m_interface),
                      pos);
     } else if (str_starts(pos, P2P_EVENT_CROSS_CONNECT_ENABLE)) {
@@ -1217,6 +1207,9 @@ void WifiWPAAdapterPrivate::processMsg(char *msg)
                 pos);
     } else if (str_starts(pos, AP_STA_DISCONNECTED)) {
         qCDebug(wifiWPAAdapter, "[ MSG ] = AP_STA_DISCONNECTED\n%s",
+                pos);
+    } else if (str_starts(pos, WPA_EVENT_TERMINATING)) {
+        qCDebug(wifiWPAAdapter, "[ MSG ] = WPA_EVENT_TERMINATING\n%s",
                 pos);
     } else {
         //        qCDebug(wifiWPAAdapter, "[ MSG ] = OTHER\n%s",
@@ -1264,9 +1257,9 @@ int WifiWPAAdapterPrivate::ctrlRequest(const char *cmd, char *buf,
     }
     ret = wpa_ctrl_request(ctrl_conn, cmd, strlen(cmd), buf, buflen, NULL);
     if (ret == -2) {
-        qCDebug(wifiWPAAdapter, "'%s' command timed out.", cmd);
+        qCCritical(wifiWPAAdapter, "'%s' command timed out.", cmd);
     } else if (ret < 0) {
-        qCDebug(wifiWPAAdapter, "'%s' command failed.", cmd);
+        qCCritical(wifiWPAAdapter, "'%s' command failed.", cmd);
     }
     return ret;
 }
@@ -1285,53 +1278,57 @@ int WifiWPAAdapterPrivate::setNetworkParam(int id, const char *field,
 
 void WifiWPAAdapterPrivate::open()
 {
-    if(qEnvironmentVariableIsEmpty("WIFI_HELPER_CMD_WPA")) {
-        return;
-    }
-    QString cmd_wpa = QString::fromLocal8Bit(qgetenv("WIFI_HELPER_CMD_WPA"));
-
     if(app_wpa == NULL) {
-        qCDebug(wifiWPAAdapter, "First to Open WIFI.");
+        qCInfo(wifiWPAAdapter, "Open WIFI [ First ].");
         app_wpa = new QProcess();
     }
 
+    qCInfo(wifiWPAAdapter, "Open WIFI [ Start ].");
     if(app_wpa->state() == QProcess::NotRunning) {
-        qCDebug(wifiWPAAdapter, "Open WIFI [ Start ].");
-        app_wpa->start(cmd_wpa);
+        QStringList command = QString::fromLocal8Bit(WPACommand).split(
+                                              QLatin1Char(' '));
+        QString interface = QString::fromLocal8Bit(WPAInterface);
+        QString program = command[0];
+        QStringList arguments = command.mid(1);
+        arguments << "-i" << interface;
+        app_wpa->start(program, arguments);
         bool success = app_wpa->waitForStarted(5000);
 
-        if(!success) {
-            return;
+        if(success) {
+            app_wpa->waitForReadyRead(5000);
+            qCDebug(wifiWPAAdapter) << app_wpa->readAll();
+
+            timer->start(1000);
+            networkMayHaveChanged = true;
+            qCInfo(wifiWPAAdapter, "Open WIFI [ Success ].");
+        } else {
+            qCCritical(wifiWPAAdapter, "Open WIFI [ Failed ].\n%s",
+                       qPrintable(app_wpa->errorString()));
         }
 
-        timer->start(1000);
-        updateStatus();
-        networkMayHaveChanged = true;
-        updateNetworks();
-
         Q_EMIT q_func()->isOpenChanged();
-        qCDebug(wifiWPAAdapter, "Open WIFI [ End ].");
     } else {
-        qCDebug(wifiWPAAdapter, "Open WIFI [ Running ].");
+        qCInfo(wifiWPAAdapter, "Open WIFI [ Running ].");
     }
+    qCInfo(wifiWPAAdapter, "Open WIFI [ End ].");
 }
 
-#include <QThread>
 void WifiWPAAdapterPrivate::close()
 {
+    qCInfo(wifiWPAAdapter, "Close WIFI [ Start ].");
     if(app_wpa == NULL) {
+        qCInfo(wifiWPAAdapter, "Close WIFI [ NULL ].");
+        qCInfo(wifiWPAAdapter, "Close WIFI [ End ].");
         return;
     }
-
     if(app_wpa->state() != QProcess::NotRunning) {
-        qCDebug(wifiWPAAdapter, "Close WIFI [ Start ].");
-
         this->disconnect();
-
         timer->stop();
         signalMeterTimer->stop();
-
         if (monitor_conn) {
+            msgNotifier->setEnabled(false);
+            msgNotifier->deleteLater();
+            msgNotifier = NULL;
             wpa_ctrl_detach(monitor_conn);
             wpa_ctrl_close(monitor_conn);
             monitor_conn = NULL;
@@ -1349,27 +1346,28 @@ void WifiWPAAdapterPrivate::close()
         m_p2pDevcies.clear();
         Q_EMIT q_func()->p2pDeviceCleared();
 
-        Q_EMIT q_func()->isOpenChanged();
-
-        // TODO: Release DHCP, 比较耗时
-        if (wpa_cli_connected) {
-            wpa_cli_connected = 0;
-            // Release DHCP
-            wpa_cli_exec(action_dhcpc.constData(),
-                         qPrintable(m_interface),
-                         "DISCONNECTED");
-        }
+        //        // TODO: Release DHCP, 比较耗时
+        //        if (wpa_cli_connected) {
+        //            wpa_cli_connected = 0;
+        //            // Release DHCP
+        //            wpa_cli_exec(WPAActionDHCPClient.constData(),
+        //                         qPrintable(m_interface),
+        //                         "DISCONNECTED");
+        //        }
 
         app_wpa->kill();
         bool success = app_wpa->waitForFinished(5000);
-        if(!success) {
-            return;
+        if(success) {
+            qCInfo(wifiWPAAdapter, "Close WIFI [ Success ].");
+        } else {
+            qCCritical(wifiWPAAdapter, "Close WIFI [ Failed ].\n%s",
+                       qPrintable(app_wpa->errorString()));
         }
-
-        qCDebug(wifiWPAAdapter, "Close WIFI [ End ].");
+        Q_EMIT q_func()->isOpenChanged();
     } else {
-        qCDebug(wifiWPAAdapter, "Close WIFI [ NotRunning ].");
+        qCInfo(wifiWPAAdapter, "Close WIFI [ NotRunning ].");
     }
+    qCInfo(wifiWPAAdapter, "Close WIFI [ End ].");
 }
 
 bool WifiWPAAdapterPrivate::openWPAConnection(const QString &iface)
@@ -1388,6 +1386,7 @@ bool WifiWPAAdapterPrivate::openWPAConnection(const QString &iface)
     }
 
     if (monitor_conn) {
+        msgNotifier->setEnabled(false);
         msgNotifier->deleteLater();
         msgNotifier = NULL;
         wpa_ctrl_detach(monitor_conn);
@@ -1395,31 +1394,35 @@ bool WifiWPAAdapterPrivate::openWPAConnection(const QString &iface)
         monitor_conn = NULL;
     }
 
-    qCDebug(wifiWPAAdapter, "Trying to connect to '%s'",
-            qUtf8Printable(iface));
+    qCInfo(wifiWPAAdapter, "Open Connection '%s'.[ Start ]",
+           qUtf8Printable(iface));
 
     ctrl_conn = wpa_ctrl_open(qUtf8Printable(ifile));
     if (ctrl_conn == NULL) {
-        qCCritical(wifiWPAAdapter, "Failed to open connection! '%s'",
+        qCCritical(wifiWPAAdapter, "Open Connection '%s'.[ Failed ]",
                    qUtf8Printable(iface));
         return false;
     }
-    qCDebug(wifiWPAAdapter, "Successed to open connection. '%s'",
-            qUtf8Printable(iface));
+    qCInfo(wifiWPAAdapter, "Open Connection '%s'.[ End ]",
+           qUtf8Printable(iface));
 
+    qCInfo(wifiWPAAdapter, "Open Monitor '%s'.[ Start ]",
+           qUtf8Printable(iface));
     monitor_conn = wpa_ctrl_open(qUtf8Printable(ifile));
     if (monitor_conn == NULL) {
         wpa_ctrl_close(ctrl_conn);
         ctrl_conn = NULL;
-        qCCritical(wifiWPAAdapter, "Failed to monitor connection! '%s'",
+        qCCritical(wifiWPAAdapter, "Open Monitor '%s'.[ Failed ]",
                    qUtf8Printable(iface));
         return false;
     }
-    qCDebug(wifiWPAAdapter, "Successed to monitor connection. '%s'",
-            qUtf8Printable(iface));
+    qCInfo(wifiWPAAdapter,  "Open Monitor '%s'.[ End ]",
+           qUtf8Printable(iface));
 
+    qCInfo(wifiWPAAdapter, "Attach '%s' to wpa_supplicant.[ Start ]",
+           qUtf8Printable(iface));
     if (wpa_ctrl_attach(monitor_conn)) {
-        qCCritical(wifiWPAAdapter, "Failed to attach to wpa_supplicant! '%s'",
+        qCCritical(wifiWPAAdapter, "Attach '%s' to wpa_supplicant.[ Failed ]",
                    qUtf8Printable(iface));
         wpa_ctrl_close(monitor_conn);
         monitor_conn = NULL;
@@ -1427,8 +1430,8 @@ bool WifiWPAAdapterPrivate::openWPAConnection(const QString &iface)
         ctrl_conn = NULL;
         return false;
     }
-    qCDebug(wifiWPAAdapter, "Successed to attach to wpa_supplicant. '%s'",
-            qUtf8Printable(iface));
+    qCInfo(wifiWPAAdapter, "Attach '%s' to wpa_supplicant.[ End ]",
+           qUtf8Printable(iface));
 
 #if defined(CONFIG_CTRL_IFACE_UNIX) || defined(CONFIG_CTRL_IFACE_UDP)
     msgNotifier = new QSocketNotifier(wpa_ctrl_get_fd(monitor_conn),
@@ -1463,19 +1466,18 @@ void WifiWPAAdapterPrivate::saveConfig()
     size_t len;
 
     len = sizeof(buf) - 1;
+    qCInfo(wifiWPAAdapter, "Saved configuration.[ Start ]");
     ctrlRequest("SAVE_CONFIG", buf, &len);
-
     buf[len] = '\0';
-
     if (QString(buf) == QLatin1String("FAIL"))
-        qCWarning(wifiWPAAdapter, "Failed to save configuration :\n%s",
-                  "The configuration could not be saved.\n"
-                  "The update_config=1 configuration option "
-                  "must be used for configuration saving to "
-                  "be permitted.");
+        qCCritical(wifiWPAAdapter,  "Saved configuration.[ Failed ]\n%s",
+                   "The configuration could not be saved.\n"
+                   "The update_config=1 configuration option "
+                   "must be used for configuration saving to "
+                   "be permitted.");
     else
-        qCDebug(wifiWPAAdapter, "Saved configuration :\n%s",
-                "The current configuration was saved.");
+        qCInfo(wifiWPAAdapter, "Saved configuration.[ End ]\n%s",
+               "The current configuration was saved.");
 }
 
 void WifiWPAAdapterPrivate::ping()
@@ -1496,11 +1498,13 @@ void WifiWPAAdapterPrivate::ping()
 
     len = sizeof(buf) - 1;
     if (ctrlRequest("PING", buf, &len) < 0) {
-        qCWarning(wifiWPAAdapter, "PING failed - trying to reconnect.");
-        if (openWPAConnection(m_interface)) {
-            qCDebug(wifiWPAAdapter, "Reconnected successfully by PING.");
+        qCCritical(wifiWPAAdapter, "PING [ Failed ]");
+        QString interface = QString::fromLocal8Bit(WPAInterface);
+        if (openWPAConnection(interface)) {
             pingsToStatusUpdate = 0;
         }
+    } else {
+        qCDebug(wifiWPAAdapter, "PING [ Success ]");
     }
 
     pingsToStatusUpdate--;
@@ -1668,12 +1672,13 @@ void WifiWPAAdapterPrivate::p2p_start()
     qDeleteAll(m_p2pDevcies);
     m_p2pDevcies.clear();
     Q_EMIT q_func()->p2pDeviceCleared();
+    qCInfo(wifiWPAP2P, "P2P_FIND [ Start ]");
     if (this->ctrlRequest("P2P_FIND", reply, &reply_len) < 0 ||
         memcmp(reply, "FAIL", 4) == 0) {
-
-        qCCritical(wifiWPAP2P, "Failed to start P2P discovery.\n%s",
+        qCCritical(wifiWPAP2P, "P2P_FIND [ Failed ]\n%s",
                    reply);
     }
+    qCInfo(wifiWPAP2P, "P2P_FIND [ End ]");
 }
 
 void WifiWPAAdapterPrivate::p2p_stop()
@@ -1681,7 +1686,9 @@ void WifiWPAAdapterPrivate::p2p_stop()
     char reply[20];
     size_t reply_len;
     reply_len = sizeof(reply) - 1;
+    qCInfo(wifiWPAP2P, "P2P_STOP_FIND [ Start ]");
     this->ctrlRequest("P2P_STOP_FIND", reply, &reply_len);
+    qCInfo(wifiWPAP2P, "P2P_STOP_FIND [ End ]");
     qDeleteAll(m_p2pDevcies);
     m_p2pDevcies.clear();
     Q_EMIT q_func()->p2pDeviceCleared();
@@ -1697,10 +1704,15 @@ void WifiWPAAdapterPrivate::p2p_connectPBC(const QString &address)
              address.toLocal8Bit().constData());
 
     reply_len = sizeof(reply) - 1;
+    qCInfo(wifiWPAP2P, "P2P_CONNECT %s pbc [ Start ]",
+           qUtf8Printable(address));
     if (this->ctrlRequest(cmd, reply, &reply_len) < 0) {
-        qCCritical(wifiWPAP2P, "Failed to start WPS PBC.\n%s",
+        qCCritical(wifiWPAP2P, "P2P_CONNECT %s pbc [ Failed ].\n%s",
+                   qUtf8Printable(address),
                    reply);
     }
+    qCInfo(wifiWPAP2P, "P2P_CONNECT %s pbc [ End ]",
+           qUtf8Printable(address));
 }
 
 int WifiWPAAdapterPrivate::addNetwork(const QString &ssid,
@@ -1731,9 +1743,6 @@ int WifiWPAAdapterPrivate::addNetwork(const QString &ssid,
     reply_len = sizeof(reply) - 1;
 
     if (new_network) {
-        qCDebug(wifiWPAAdapter,
-                "Add network to wpa_supplicant configuration. [ Start ]\n%s",
-                qUtf8Printable(ssid));
         ctrlRequest("ADD_NETWORK", reply, &reply_len);
         if (reply[0] == 'F') {
             qCCritical(wifiWPAAdapter,
@@ -1742,11 +1751,12 @@ int WifiWPAAdapterPrivate::addNetwork(const QString &ssid,
             return id;
         }
         id = QString(reply).toInt();
+        qCInfo(wifiWPAAdapter,
+               "ADD_NETWORK [ Start ]\n%d %s", id, qUtf8Printable(ssid));
     } else {
-        qCDebug(wifiWPAAdapter,
-                "Edit network to wpa_supplicant configuration. [ Start ]\n%s",
-                qUtf8Printable(ssid));
         id = edit_network_id;
+        qCInfo(wifiWPAAdapter,
+               "EDIT_NETWORK [ Start ]\n%d %s", id, qUtf8Printable(ssid));
     }
 
     setNetworkParam(id, "ssid", qUtf8Printable(ssid), true);
@@ -1844,13 +1854,11 @@ int WifiWPAAdapterPrivate::addNetwork(const QString &ssid,
     ctrlRequest("SAVE_CONFIG", reply, &reply_len);
 
     if (new_network) {
-        qCDebug(wifiWPAAdapter,
-                "Add network to wpa_supplicant configuration. [ End ]\n%s",
-                qUtf8Printable(ssid));
+        qCInfo(wifiWPAAdapter,
+               "ADD_NETWORK [ End ]\n%d %s", id, qUtf8Printable(ssid));
     } else {
-        qCDebug(wifiWPAAdapter,
-                "Edit network to wpa_supplicant configuration. [ End ]\n%s",
-                qUtf8Printable(ssid));
+        qCInfo(wifiWPAAdapter,
+               "EDIT_NETWORK [ End ]\n%d %s", id, qUtf8Printable(ssid));
     }
 
     return id;
@@ -1877,7 +1885,11 @@ void WifiWPAAdapterPrivate::selectNetwork(const QString &ssid)
         return;
     }
 
+    qCInfo(wifiWPAAdapter,
+           "SELECT_NETWORK [ Start ]\n%s", qUtf8Printable(ssid));
     selectNetwork(net->id());
+    qCInfo(wifiWPAAdapter,
+           "SELECT_NETWORK [ End ]\n%s", qUtf8Printable(ssid));
 }
 
 void WifiWPAAdapterPrivate::selectNetwork(int id)
@@ -1896,18 +1908,17 @@ void WifiWPAAdapterPrivate::selectNetwork(int id)
     }
     QString ssid = net->ssid();
 
-    qCDebug(wifiWPAAdapter,
-            "SELECT_NETWORK %d [ Start ]\n%s",
-            id, qUtf8Printable(ssid));
+    qCInfo(wifiWPAAdapter,
+           "SELECT_NETWORK [ Start ]\n%d %s", id, qUtf8Printable(ssid));
 
     QString cmd = QString::number(id);
     cmd.prepend("SELECT_NETWORK ");
     ctrlRequest(cmd.toLocal8Bit().constData(), reply, &reply_len);
     triggerUpdate();
     //  stopWpsRun(false);
-    qCDebug(wifiWPAAdapter,
-            "SELECT_NETWORK %d [ End ]\n%s",
-            id, qUtf8Printable(ssid));
+
+    qCInfo(wifiWPAAdapter,
+           "SELECT_NETWORK [ End ]\n%d %s", id, qUtf8Printable(ssid));
 }
 
 void WifiWPAAdapterPrivate::removeNetwork(const QString &ssid)
@@ -1931,7 +1942,11 @@ void WifiWPAAdapterPrivate::removeNetwork(const QString &ssid)
         return;
     }
 
+    qCInfo(wifiWPAAdapter,
+           "REMOVE_NETWORK [ Start ]\n%s", qUtf8Printable(ssid));
     removeNetwork(net->id());
+    qCInfo(wifiWPAAdapter,
+           "REMOVE_NETWORK [ End ]\n%s", qUtf8Printable(ssid));
 }
 
 void WifiWPAAdapterPrivate::removeNetwork(int id)
@@ -1949,9 +1964,8 @@ void WifiWPAAdapterPrivate::removeNetwork(int id)
     }
     QString ssid = net->ssid();
 
-    qCDebug(wifiWPAAdapter,
-            "REMOVE_NETWORK %d [ Start ]\n%s",
-            id, qUtf8Printable(ssid));
+    qCInfo(wifiWPAAdapter,
+           "REMOVE_NETWORK [ Start ]\n%d %s", id, qUtf8Printable(ssid));
 
     snprintf(cmd, sizeof(cmd), "REMOVE_NETWORK %d", id);
     reply_len = sizeof(reply);
@@ -1965,9 +1979,8 @@ void WifiWPAAdapterPrivate::removeNetwork(int id)
         this->ctrlRequest("SAVE_CONFIG", reply, &reply_len);
     }
 
-    qCDebug(wifiWPAAdapter,
-            "REMOVE_NETWORK %d [ End ]\n%s",
-            id, qUtf8Printable(ssid));
+    qCInfo(wifiWPAAdapter,
+           "REMOVE_NETWORK [ End ]\n%d %s", id, qUtf8Printable(ssid));
 }
 
 WifiWPAAdapter::WifiWPAAdapter(QObject *parent)
@@ -1998,18 +2011,6 @@ void WifiWPAAdapter::close()
 {
     Q_D(WifiWPAAdapter);
     d->close();
-}
-
-void WifiWPAAdapter::selectInterface(const QString &iface)
-{
-    Q_D(WifiWPAAdapter);
-    if (d->openWPAConnection(iface)) {
-        qCCritical(wifiWPAAdapter,
-                   "Failed to select '%s' interface to  wpa_supplicant.",
-                   qPrintable(iface));
-    }
-    d->updateStatus();
-    d->updateNetworks();
 }
 
 bool WifiWPAAdapter::connect()

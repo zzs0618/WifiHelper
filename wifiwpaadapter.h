@@ -75,7 +75,6 @@ public slots:
     void open();
     void close();
 
-    void selectInterface(const QString &iface);
     bool connect();
     bool disconnect();
     void saveConfig();
