@@ -341,20 +341,20 @@ void WifiWPAAdapterPrivate::updateStatus()
             }
         }
 
-        qCDebug(wifiWPAAdapter,
-                "Get status from wpa_supplicant :\n"
-                "[Status        ] = %s\n"
-                "[Security      ] = %s\n"
-                "[Encryption    ] = %s\n"
-                "[SSID          ] = %s\n"
-                "[BSSID         ] = %s\n"
-                "[IP Address    ] = %s\n",
-                qPrintable(_wpaState + " (" + _wpaMode + ")" + (status_updated ? " [*]" : "")),
-                qPrintable(_wpaSecurity + (security_updated ? " [*]" : "")),
-                qPrintable(encr),
-                qPrintable(_ssid + (ssid_updated ? " [*]" : "")),
-                qPrintable(_bssid + (bssid_updated ? " [*]" : "")),
-                qPrintable(_ipAddress + (ipaddr_updated ? " [*]" : "")));
+        qCInfo(wifiWPAAdapter,
+               "Get status from wpa_supplicant :\n"
+               "[Status        ] = %s\n"
+               "[Security      ] = %s\n"
+               "[Encryption    ] = %s\n"
+               "[SSID          ] = %s\n"
+               "[BSSID         ] = %s\n"
+               "[IP Address    ] = %s\n",
+               qPrintable(_wpaState + " (" + _wpaMode + ")" + (status_updated ? " [*]" : "")),
+               qPrintable(_wpaSecurity + (security_updated ? " [*]" : "")),
+               qPrintable(encr),
+               qPrintable(_ssid + (ssid_updated ? " [*]" : "")),
+               qPrintable(_bssid + (bssid_updated ? " [*]" : "")),
+               qPrintable(_ipAddress + (ipaddr_updated ? " [*]" : "")));
         Q_EMIT q_func()->statusChanged();
     }
 
@@ -1047,8 +1047,8 @@ void WifiWPAAdapterPrivate::processMsg(char *msg)
                 "Update the scan results.");
         updateScanResults();
     } else if (str_match(pos, WPA_EVENT_DISCONNECTED)) {
-        qCDebug(wifiWPAAdapter, "[ MSG ] = WPA_EVENT_DISCONNECTED\n%s",
-                "Disconnected from network.");
+        qCInfo(wifiWPAAdapter, "[ MSG ] = WPA_EVENT_DISCONNECTED\n%s",
+               "Disconnected from network.");
         if (wpa_cli_connected) {
             wpa_cli_connected = 0;
             // Release DHCP
@@ -1059,8 +1059,8 @@ void WifiWPAAdapterPrivate::processMsg(char *msg)
         //        showTrayMessage(QSystemTrayIcon::Information, 3,
         //                        tr("Disconnected from network."));
     } else if (str_match(pos, WPA_EVENT_CONNECTED)) {
-        qCDebug(wifiWPAAdapter, "[ MSG ] = WPA_EVENT_CONNECTED\n%s",
-                "Connection to network established.");
+        qCInfo(wifiWPAAdapter, "[ MSG ] = WPA_EVENT_CONNECTED\n%s",
+               "Connection to network established.");
 
         int new_id = -1;
         os_unsetenv("WPA_ID");
